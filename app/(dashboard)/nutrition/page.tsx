@@ -8,13 +8,17 @@ import {
 } from '@/lib/nutrition-data'
 import {
   Plus, X, AlertTriangle, Sparkles, Zap, Coffee, Loader2,
-  BookOpen, ChevronDown, ChevronUp, Star, UtensilsCrossed,
+  BookOpen, ChevronDown, ChevronUp, Star, UtensilsCrossed, Check,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { getMealRecommendations, getDailyCalorieTarget, type MealOption } from '@/lib/meal-recommendations'
 
 interface AiEstimate {
   food_name: string; calories: number; protein_g: number; carbs_g: number; fat_g: number; serving_description: string
+}
+interface GeneratedMeal {
+  meal_type: string; food_name: string; description: string
+  calories: number; protein_g: number; carbs_g: number; fat_g: number
 }
 interface QuickMeal {
   id: string; name: string; meal_type: string | null; total_calories: number
@@ -64,6 +68,11 @@ export default function NutritionPage() {
   const [quickMealName, setQuickMealName] = useState('')
   const [savingQuickMeal, setSavingQuickMeal] = useState(false)
   const [expandedLog, setExpandedLog] = useState<MealType | null>(null)
+  const [planModalOpen, setPlanModalOpen] = useState(false)
+  const [planPrompt, setPlanPrompt] = useState('')
+  const [generatingPlan, setGeneratingPlan] = useState(false)
+  const [generatedPlan, setGeneratedPlan] = useState<GeneratedMeal[] | null>(null)
+  const [savingPlan, setSavingPlan] = useState(false)
 
   const today = format(new Date(), 'yyyy-MM-dd')
 
@@ -156,6 +165,33 @@ export default function NutritionPage() {
     fetchData()
   }
 
+  const generatePlan = async () => {
+    if (!planPrompt.trim()) return
+    setGeneratingPlan(true); setGeneratedPlan(null)
+    try {
+      const res = await fetch('/api/generate-meal-plan', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: planPrompt, profile }),
+      })
+      const data = await res.json()
+      if (data.meals) setGeneratedPlan(data.meals)
+    } catch { /* ignore */ } finally { setGeneratingPlan(false) }
+  }
+
+  const savePlan = async () => {
+    if (!generatedPlan) return
+    setSavingPlan(true)
+    const items = generatedPlan.map((m) => ({
+      meal_type: m.meal_type, food_name: m.food_name,
+      calories: m.calories, protein_g: m.protein_g, carbs_g: m.carbs_g, fat_g: m.fat_g, date: today,
+    }))
+    await fetch('/api/food-logs', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(items),
+    })
+    setSavingPlan(false); setPlanModalOpen(false); setGeneratedPlan(null); setPlanPrompt('')
+    fetchData()
+  }
+
   const targets = profile
     ? calculateDailyTargets(profile.gender, profile.is_pregnant, profile.activity_level)
     : { calories: 2000, protein: 125, carbs: 225, fat: 67, water_ml: 2700 }
@@ -185,30 +221,50 @@ export default function NutritionPage() {
         </div>
       )}
 
-      <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 mb-5">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="font-semibold text-slate-800">סיכום יומי</h2>
-          <span className="text-2xl font-bold text-slate-800">{Math.round(totalCalories)}{' '}<span className="text-sm font-normal text-slate-400">/ {targets.calories} קק״ל</span></span>
+      <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 mb-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold text-slate-800">יעדי יום</h2>
+          <div className="text-right">
+            <span className={`text-xl font-bold ${totalCalories > targets.calories ? 'text-red-500' : 'text-slate-800'}`}>{Math.round(totalCalories)}</span>
+            <span className="text-sm text-slate-400"> / {targets.calories} קק״ל</span>
+          </div>
         </div>
-        <div className="h-3 bg-slate-100 rounded-full overflow-hidden mb-4">
+        <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden mb-5">
           <div className={`h-full rounded-full transition-all duration-500 ${totalCalories > targets.calories ? 'bg-red-400' : 'bg-emerald-500'}`} style={{ width: `${Math.min(100, (totalCalories / targets.calories) * 100)}%` }} />
         </div>
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: 'חלבון', value: totalProtein, target: targets.protein, color: 'bg-red-400' },
-            { label: 'פחמימות', value: totalCarbs, target: targets.carbs, color: 'bg-amber-400' },
-            { label: 'שומן', value: totalFat, target: targets.fat, color: 'bg-yellow-400' },
-          ].map(({ label, value, target, color }) => (
-            <div key={label} className="bg-slate-50 rounded-xl p-3">
-              <div className="text-xs text-slate-500 mb-1">{label}</div>
-              <div className="text-sm font-bold text-slate-700">{Math.round(value)}<span className="font-normal text-slate-400">/{target}גר׳</span></div>
-              <div className="h-1.5 bg-slate-200 rounded-full mt-2 overflow-hidden">
-                <div className={`h-full ${color} rounded-full`} style={{ width: `${Math.min(100, (value / target) * 100)}%` }} />
+            { label: 'חלבון', value: totalProtein, target: targets.protein, color: 'bg-red-400', textColor: 'text-red-600', bgColor: 'bg-red-50' },
+            { label: 'פחמימות', value: totalCarbs, target: targets.carbs, color: 'bg-amber-400', textColor: 'text-amber-600', bgColor: 'bg-amber-50' },
+            { label: 'שומן', value: totalFat, target: targets.fat, color: 'bg-yellow-400', textColor: 'text-yellow-600', bgColor: 'bg-yellow-50' },
+          ].map(({ label, value, target, color, textColor, bgColor }) => {
+            const remaining = Math.max(0, target - Math.round(value))
+            const pct = Math.min(100, (value / target) * 100)
+            const over = value > target
+            return (
+              <div key={label} className={`${bgColor} rounded-xl p-3`}>
+                <div className="text-xs font-medium text-slate-600 mb-2">{label}</div>
+                <div className={`text-lg font-bold ${over ? 'text-red-500' : 'text-slate-800'}`}>{Math.round(value)}<span className="text-xs font-normal text-slate-400">ג׳</span></div>
+                <div className="text-xs text-slate-500 mb-1.5">יעד: <span className="font-medium">{target}ג׳</span></div>
+                <div className="h-1.5 bg-white/70 rounded-full overflow-hidden mb-1.5">
+                  <div className={`h-full ${over ? 'bg-red-400' : color} rounded-full transition-all`} style={{ width: `${pct}%` }} />
+                </div>
+                <div className={`text-xs font-medium ${over ? 'text-red-500' : textColor}`}>
+                  {over ? `+${Math.round(value - target)}ג׳ חריגה` : `נותר ${remaining}ג׳`}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
+
+      <button
+        onClick={() => setPlanModalOpen(true)}
+        className="w-full mb-5 flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white py-3.5 rounded-2xl font-semibold text-sm shadow-sm transition-all active:scale-98"
+      >
+        <Sparkles className="w-5 h-5" />
+        ✨ יצרי לי תפריט יומי עם AI
+      </button>
 
       <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 mb-5">
         <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
@@ -417,6 +473,76 @@ export default function NutritionPage() {
                   </div>
                 </button>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {planModalOpen && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" dir="rtl">
+          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
+              <div>
+                <h3 className="font-bold text-slate-800 text-lg">✨ יצרי תפריט יומי עם AI</h3>
+                <p className="text-xs text-slate-400 mt-0.5">תארי מה אוהבת, מה יש בבית, מה להימנע</p>
+              </div>
+              <button onClick={() => { setPlanModalOpen(false); setGeneratedPlan(null); setPlanPrompt('') }} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5">
+              {!generatedPlan ? (
+                <div>
+                  <textarea
+                    rows={4}
+                    value={planPrompt}
+                    onChange={(e) => setPlanPrompt(e.target.value)}
+                    placeholder={'לדוגמה: "אני אוהבת אוכל ים תיכוני, יש לי בבית עוף וירקות, אל תכניסי גלוטן" או "תפריט מלא לעיצוב גוף, הרבה חלבון"'}
+                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-400 resize-none mb-4"
+                  />
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {['אוכל ים תיכוני', 'הרבה חלבון', 'צמחוני', 'ללא גלוטן', 'אוכל ישראלי קלאסי'].map((s) => (
+                      <button key={s} onClick={() => setPlanPrompt(s)}
+                        className="text-xs bg-violet-50 text-violet-700 border border-violet-200 px-3 py-1.5 rounded-full hover:bg-violet-100 transition-colors">{s}</button>
+                    ))}
+                  </div>
+                  <button onClick={generatePlan} disabled={!planPrompt.trim() || generatingPlan}
+                    className="w-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white py-3.5 rounded-xl font-semibold text-sm disabled:opacity-40 flex items-center justify-center gap-2 transition-all">
+                    {generatingPlan ? <><Loader2 className="w-5 h-5 animate-spin" />מכין תפריט...</> : <><Sparkles className="w-5 h-5" />יצרי תפריט</>}
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-sm text-slate-500 mb-4">סך הכל: <span className="font-semibold text-slate-800">{generatedPlan.reduce((s, m) => s + m.calories, 0)} קל׳</span> | חלבון {generatedPlan.reduce((s, m) => s + m.protein_g, 0).toFixed(0)}ג׳ | פחמימות {generatedPlan.reduce((s, m) => s + m.carbs_g, 0).toFixed(0)}ג׳ | שומן {generatedPlan.reduce((s, m) => s + m.fat_g, 0).toFixed(0)}ג׳</p>
+                  <div className="space-y-3 mb-5">
+                    {generatedPlan.map((meal, i) => {
+                      const labelMap: Record<string, string> = { breakfast: '🌅 ארוחת בוקר', snack: '🍎 ביניים', lunch: '☀️ ארוחת צהריים', dinner: '🌙 ארוחת ערב' }
+                      return (
+                        <div key={i} className="bg-slate-50 rounded-xl p-4">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-medium text-slate-500">{labelMap[meal.meal_type] ?? meal.meal_type}</span>
+                            <span className="text-xs font-semibold text-orange-600">{meal.calories} קל׳</span>
+                          </div>
+                          <p className="font-semibold text-slate-800 text-sm mb-0.5">{meal.food_name}</p>
+                          {meal.description && <p className="text-xs text-slate-500 leading-relaxed">{meal.description}</p>}
+                          <div className="flex gap-3 mt-2 text-xs text-slate-400">
+                            <span>ח׳ {meal.protein_g}ג׳</span>
+                            <span>פ׳ {meal.carbs_g}ג׳</span>
+                            <span>ש׳ {meal.fat_g}ג׳</span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div className="flex gap-3">
+                    <button onClick={() => { setGeneratedPlan(null) }} className="flex-1 border border-slate-200 text-slate-600 py-3 rounded-xl text-sm font-medium">יצרי מחדש</button>
+                    <button onClick={savePlan} disabled={savingPlan}
+                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2">
+                      {savingPlan ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                      שמרי ביומן
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
