@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Profile, Goal, ActivityLevel } from '@/lib/types'
-import { User, Save, LogOut, Check } from 'lucide-react'
+import { User, Save, LogOut, Check, Copy, RefreshCw, Smartphone } from 'lucide-react'
 
 const GOALS: { value: Goal; label: string }[] = [
   { value: 'weight_loss', label: 'ירידה במשקל' },
@@ -26,6 +26,9 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [syncToken, setSyncToken] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+  const [regenerating, setRegenerating] = useState(false)
   const [form, setForm] = useState({
     height_cm: '', weight_kg: '', target_weight_kg: '', pregnancy_week: '',
     has_gestational_diabetes: false, skip_target_weight: false, goals: [] as Goal[], activity_level: '' as ActivityLevel | '', medical_notes: '',
@@ -49,6 +52,9 @@ export default function ProfilePage() {
         })
       }
     }).catch(() => {})
+    fetch('/api/steps/sync-token').then((r) => r.json()).then((d) => {
+      if (d.token) setSyncToken(d.token)
+    }).catch(() => {})
   }, [])
 
   const toggleGoal = (goal: Goal) => {
@@ -56,6 +62,21 @@ export default function ProfilePage() {
       ...prev,
       goals: prev.goals.includes(goal) ? prev.goals.filter((g) => g !== goal) : [...prev.goals, goal],
     }))
+  }
+
+  const copyUrl = async () => {
+    const url = `${window.location.origin}/api/steps/sync?token=${syncToken}&steps=`
+    await navigator.clipboard.writeText(url)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const regenerateToken = async () => {
+    setRegenerating(true)
+    const res = await fetch('/api/steps/sync-token', { method: 'POST' })
+    const data = await res.json()
+    if (data.token) setSyncToken(data.token)
+    setRegenerating(false)
   }
 
   const handleSave = async () => {
@@ -179,6 +200,61 @@ export default function ProfilePage() {
         <textarea placeholder="בעיות גב, לחץ דם, כאבי ברכיים..." value={form.medical_notes}
           onChange={(e) => setForm({ ...form, medical_notes: e.target.value })} rows={3}
           className="w-full border border-slate-200 rounded-xl px-4 py-3 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 resize-none" />
+      </div>
+
+      <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 mb-5">
+        <div className="flex items-center gap-2 mb-3">
+          <Smartphone className="w-5 h-5 text-emerald-600" />
+          <h2 className="font-semibold text-slate-800">סנכרון Apple Health</h2>
+        </div>
+        <p className="text-sm text-slate-500 mb-4">סנכרן צעדים יומיים אוטומטית מהאייפון דרך iOS Shortcuts</p>
+
+        {syncToken ? (
+          <>
+            <div className="bg-slate-50 rounded-xl p-3 mb-3">
+              <p className="text-xs text-slate-400 mb-1 font-medium">כתובת ה-Shortcut שלך:</p>
+              <p className="text-xs text-slate-600 break-all font-mono leading-relaxed">
+                {`${typeof window !== 'undefined' ? window.location.origin : ''}/api/steps/sync?token=${syncToken}&steps=`}
+                <span className="text-emerald-600 font-bold">[STEPS]</span>
+              </p>
+            </div>
+
+            <div className="flex gap-2 mb-5">
+              <button onClick={copyUrl}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all ${copied ? 'bg-emerald-100 text-emerald-700' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}>
+                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                {copied ? 'הועתק!' : 'העתק כתובת'}
+              </button>
+              <button onClick={regenerateToken} disabled={regenerating}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-60">
+                <RefreshCw className={`w-4 h-4 ${regenerating ? 'animate-spin' : ''}`} />
+                חדש
+              </button>
+            </div>
+
+            <div className="space-y-2.5">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">הוראות הגדרה:</p>
+              {[
+                'פתחי את אפליקציית Shortcuts באייפון',
+                'לחצי + ליצירת Shortcut חדש',
+                'הוסיפי פעולה: Health → Read Data → Steps',
+                'הוסיפי פעולה: URL → הכניסי את הכתובת שהעתקת',
+                'בסוף הכתובת צרפי את כמות הצעדים (Shortcut Input)',
+                'הוסיפי פעולה: Get Contents of URL',
+                'הגדירי את ה-Shortcut לרוץ אוטומטית כל יום בלילה',
+              ].map((step, i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">{i + 1}</div>
+                  <p className="text-sm text-slate-600">{step}</p>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="flex items-center justify-center py-6">
+            <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col gap-3">
