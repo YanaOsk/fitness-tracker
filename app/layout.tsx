@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Geist } from 'next/font/google'
+import { SessionProvider } from 'next-auth/react'
 import './globals.css'
 
 const geist = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
@@ -41,7 +42,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-title" content="FitLife" />
       </head>
       <body className="min-h-full bg-slate-50 text-slate-900 antialiased">
-        {children}
+        <SessionProvider>
+          {children}
+        </SessionProvider>
         <script
           dangerouslySetInnerHTML={{
             __html: `

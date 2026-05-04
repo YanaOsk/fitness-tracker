@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { signIn } from 'next-auth/react'
 import {
   Activity,
   Apple,
@@ -23,21 +23,15 @@ const features = [
 
 export default function LandingPage() {
   const [loading, setLoading] = useState(false)
-  const supabase = createClient()
 
   const handleGoogleLogin = async () => {
     setLoading(true)
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
-    })
+    await signIn('google', { callbackUrl: '/dashboard' })
   }
 
   return (
     <div className="min-h-screen flex flex-col" dir="rtl">
-      {/* Hero gradient */}
       <div className="flex-1 bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 flex flex-col">
-        {/* Header */}
         <header className="px-6 py-5 flex items-center">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-md">
@@ -47,7 +41,6 @@ export default function LandingPage() {
           </div>
         </header>
 
-        {/* Main hero */}
         <main className="flex-1 flex flex-col items-center justify-center px-6 py-12 text-center">
           <div className="max-w-2xl w-full mx-auto">
             <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm text-white text-sm px-4 py-2 rounded-full mb-8 border border-white/20">
@@ -87,7 +80,6 @@ export default function LandingPage() {
           </div>
         </main>
 
-        {/* Wave divider */}
         <div className="w-full overflow-hidden leading-none">
           <svg viewBox="0 0 1440 60" className="w-full block fill-slate-50">
             <path d="M0,60 C480,0 960,0 1440,60 L1440,60 L0,60 Z" />
@@ -95,7 +87,6 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* Features section */}
       <section className="bg-slate-50 py-14 px-6">
         <div className="max-w-5xl mx-auto">
           <h2 className="text-2xl font-bold text-slate-800 text-center mb-3">מה תמצא ב-FitLife?</h2>
@@ -117,7 +108,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Footer */}
       <footer className="bg-slate-50 border-t border-slate-100 py-6 text-center text-slate-400 text-sm">
         FitLife &copy; {new Date().getFullYear()} — מעקב כושר ותזונה חכם
       </footer>

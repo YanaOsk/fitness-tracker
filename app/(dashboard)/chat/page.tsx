@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { Profile } from '@/lib/types'
 import { Send, Bot, Activity } from 'lucide-react'
 
@@ -25,16 +24,9 @@ export default function ChatPage() {
   const [streaming, setStreaming] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
-  const supabase = createClient()
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-      if (data) setProfile(data as Profile)
-    }
-    fetchProfile()
+    fetch('/api/profile').then((r) => r.json()).then((data) => { if (data) setProfile(data as Profile) }).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -91,13 +83,10 @@ export default function ChatPage() {
           }
         }
       }
-    } catch (error) {
+    } catch {
       setMessages((prev) => {
         const updated = [...prev]
-        updated[updated.length - 1] = {
-          role: 'assistant',
-          content: 'מצטער, אירעה שגיאה. נסה שוב.',
-        }
+        updated[updated.length - 1] = { role: 'assistant', content: 'מצטער, אירעה שגיאה. נסה שוב.' }
         return updated
       })
     } finally {
@@ -107,15 +96,11 @@ export default function ChatPage() {
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      sendMessage(input)
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input) }
   }
 
   return (
-    <div className="flex flex-col h-screen lg:h-[calc(100vh-0px)]" dir="rtl">
-      {/* Header */}
+    <div className="flex flex-col h-screen" dir="rtl">
       <div className="bg-white border-b border-slate-100 p-4 flex items-center gap-3 flex-shrink-0">
         <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
           <Bot className="w-6 h-6 text-emerald-600" />
@@ -133,7 +118,6 @@ export default function ChatPage() {
         )}
       </div>
 
-      {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-6 gap-4">
@@ -142,41 +126,25 @@ export default function ChatPage() {
             </div>
             <div>
               <h2 className="font-bold text-slate-800 text-xl mb-2">שלום! אני FitLife AI</h2>
-              <p className="text-slate-500 text-sm max-w-xs">
-                שאל/י אותי כל שאלה על כושר, תזונה, תרגילים בטוחים בהריון ועוד.
-              </p>
+              <p className="text-slate-500 text-sm max-w-xs">שאל/י אותי כל שאלה על כושר, תזונה, תרגילים בטוחים בהריון ועוד.</p>
             </div>
             <div className="w-full max-w-sm space-y-2 mt-2">
               <p className="text-xs text-slate-400 mb-2">נושאים נפוצים:</p>
               {SUGGESTIONS.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => sendMessage(s)}
-                  className="w-full text-right text-sm bg-white border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50 text-slate-600 px-4 py-2.5 rounded-xl transition-all"
-                >
-                  {s}
-                </button>
+                <button key={s} onClick={() => sendMessage(s)}
+                  className="w-full text-right text-sm bg-white border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50 text-slate-600 px-4 py-2.5 rounded-xl transition-all">{s}</button>
               ))}
             </div>
           </div>
         ) : (
           messages.map((msg, i) => (
-            <div
-              key={i}
-              className={`flex ${msg.role === 'user' ? 'justify-start' : 'justify-end'}`}
-            >
+            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-start' : 'justify-end'}`}>
               {msg.role === 'assistant' && (
                 <div className="w-7 h-7 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0 ml-2 mt-1">
                   <Bot className="w-4 h-4 text-emerald-600" />
                 </div>
               )}
-              <div
-                className={`max-w-[75%] sm:max-w-md rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
-                  msg.role === 'user'
-                    ? 'bg-emerald-500 text-white rounded-tl-sm'
-                    : 'bg-white text-slate-800 rounded-tr-sm shadow-sm border border-slate-100'
-                }`}
-              >
+              <div className={`max-w-[75%] sm:max-w-md rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${msg.role === 'user' ? 'bg-emerald-500 text-white rounded-tl-sm' : 'bg-white text-slate-800 rounded-tr-sm shadow-sm border border-slate-100'}`}>
                 {msg.content}
                 {msg.role === 'assistant' && msg.content === '' && streaming && (
                   <span className="inline-flex items-center gap-0.5 mr-1">
@@ -192,31 +160,18 @@ export default function ChatPage() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
       <div className="bg-white border-t border-slate-100 p-4 flex-shrink-0 pb-safe">
         <div className="flex items-end gap-3 max-w-3xl mx-auto">
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="שאל/י שאלה על כושר או תזונה..."
-            rows={1}
-            disabled={streaming}
+          <textarea ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown}
+            placeholder="שאל/י שאלה על כושר או תזונה..." rows={1} disabled={streaming}
             className="flex-1 border border-slate-200 rounded-2xl px-4 py-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent resize-none max-h-32 disabled:opacity-60"
-            style={{ minHeight: '48px' }}
-          />
-          <button
-            onClick={() => sendMessage(input)}
-            disabled={!input.trim() || streaming}
-            className="w-12 h-12 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl flex items-center justify-center flex-shrink-0 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-          >
+            style={{ minHeight: '48px' }} />
+          <button onClick={() => sendMessage(input)} disabled={!input.trim() || streaming}
+            className="w-12 h-12 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl flex items-center justify-center flex-shrink-0 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
             <Send className="w-5 h-5" />
           </button>
         </div>
-        <p className="text-center text-xs text-slate-300 mt-2">
-          AI עלול לטעות — תמיד התייעץ עם איש מקצוע בריאות
-        </p>
+        <p className="text-center text-xs text-slate-300 mt-2">AI עלול לטעות — תמיד התייעץ עם איש מקצוע בריאות</p>
       </div>
     </div>
   )

@@ -1,45 +1,46 @@
-import { createClient } from '@/lib/supabase/server'
+import { auth } from '@/lib/auth'
+import { sql } from '@/lib/db'
 import { format } from 'date-fns'
 
 export async function GET(request: Request) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  const session = await auth()
+  if (!session) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   const url = new URL(request.url)
-  const date = url.searchParams.get('date') || format(new Date(), 'yyyy-MM-dd')
+  const date = url.searchParams.get('date')
+  const from = url.searchParams.get('from')
 
-  const { data } = await supabase
-    .from('step_logs')
-    .select('steps, date, source')
-    .eq('user_id', user.id)
-    .eq('date', date)
-    .single()
+  if (from) {
+    const rows = await sql`
+      SELECT steps, date, source FROM step_logs
+      WHERE user_id = ${session.user.id} AND date >= ${from}
+      ORDER BY date
+    `
+    return Response.json(rows)
+  }
 
-  return Response.json(data ?? { steps: 0, date, source: 'manual' })
+  const targetDate = date || format(new Date(), 'yyyy-MM-dd')
+  const rows = await sql`
+    SELECT steps, date, source FROM step_logs
+    WHERE user_id = ${session.user.id} AND date = ${targetDate}
+  `
+  return Response.json(rows[0] ?? { steps: 0, date: targetDate, source: 'manual' })
 }
 
 export async function POST(request: Request) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  const session = await auth()
+  if (!session) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { steps, date } = await request.json()
   const targetDate = date || format(new Date(), 'yyyy-MM-dd')
+  const stepCount = Math.max(0, parseInt(steps))
 
-  const { data, error } = await supabase
-    .from('step_logs')
-    .upsert(
-      { user_id: user.id, steps: Math.max(0, parseInt(steps)), date: targetDate, source: 'manual' },
-      { onConflict: 'user_id,date' }
-    )
-    .select()
-    .single()
-
-  if (error) return Response.json({ error: error.message }, { status: 500 })
-  return Response.json(data)
+  const rows = await sql`
+    INSERT INTO step_logs (user_id, steps, date, source)
+    VALUES (${session.user.id}, ${stepCount}, ${targetDate}, 'manual')
+    ON CONFLICT (user_id, date)
+    DO UPDATE SET steps = ${stepCount}, logged_at = NOW()
+    RETURNING *
+  `
+  return Response.json(rows[0])
 }

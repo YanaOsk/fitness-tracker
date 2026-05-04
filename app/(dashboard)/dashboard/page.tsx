@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { Profile, WaterLog, FoodLog, WorkoutSession } from '@/lib/types'
 import { calculateDailyTargets } from '@/lib/nutrition-data'
 import { getWorkoutsForUser } from '@/lib/workout-data'
@@ -26,67 +25,45 @@ export default function DashboardPage() {
   const [todaySteps, setTodaySteps] = useState(0)
   const [weeklySteps, setWeeklySteps] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
-
-  // Step edit modal
   const [stepsModalOpen, setStepsModalOpen] = useState(false)
   const [stepsInput, setStepsInput] = useState('')
   const [savingSteps, setSavingSteps] = useState(false)
 
-  const supabase = createClient()
   const today = format(new Date(), 'yyyy-MM-dd')
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 0 })
+  const weekStartStr = format(weekStart, 'yyyy-MM-dd')
 
   const fetchData = useCallback(async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) return
-
-    const [profileRes, foodRes, waterRes, workoutRes] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', user.id).single(),
-      supabase.from('food_logs').select('*').eq('user_id', user.id).eq('date', today),
-      supabase.from('water_logs').select('*').eq('user_id', user.id).eq('date', today),
-      supabase
-        .from('workout_sessions')
-        .select('*')
-        .eq('user_id', user.id)
-        .gte('completed_at', weekStart.toISOString()),
+    const [profileRes, foodRes, waterRes, workoutRes, stepsRes] = await Promise.all([
+      fetch('/api/profile').then((r) => r.json()),
+      fetch(`/api/food-logs?date=${today}`).then((r) => r.json()),
+      fetch(`/api/water-logs?date=${today}`).then((r) => r.json()),
+      fetch(`/api/workout-sessions?from=${weekStartStr}`).then((r) => r.json()),
+      fetch(`/api/steps?from=${weekStartStr}`).then((r) => r.json()),
     ])
 
-    if (profileRes.data) setProfile(profileRes.data as Profile)
-    if (foodRes.data) setFoodLogs(foodRes.data as FoodLog[])
-    if (waterRes.data) setWaterLogs(waterRes.data as WaterLog[])
-    if (workoutRes.data) setWeeklyWorkouts(workoutRes.data as WorkoutSession[])
-
-    // Fetch steps for today + this week
-    const stepsRes = await supabase
-      .from('step_logs')
-      .select('steps, date')
-      .eq('user_id', user.id)
-      .gte('date', format(weekStart, 'yyyy-MM-dd'))
-
-    if (stepsRes.data) {
+    if (profileRes) setProfile(profileRes as Profile)
+    if (Array.isArray(foodRes)) setFoodLogs(foodRes as FoodLog[])
+    if (Array.isArray(waterRes)) setWaterLogs(waterRes as WaterLog[])
+    if (Array.isArray(workoutRes)) setWeeklyWorkouts(workoutRes as WorkoutSession[])
+    if (Array.isArray(stepsRes)) {
       const stepsMap: Record<string, number> = {}
-      stepsRes.data.forEach((s: { steps: number; date: string }) => {
-        stepsMap[s.date] = s.steps
-      })
+      stepsRes.forEach((s: { steps: number; date: string }) => { stepsMap[s.date] = s.steps })
       setWeeklySteps(stepsMap)
       setTodaySteps(stepsMap[today] ?? 0)
     }
 
     setLoading(false)
-  }, [today, weekStart])
+  }, [today, weekStartStr])
 
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
+  useEffect(() => { fetchData() }, [fetchData])
 
   const addWater = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) return
-    await supabase.from('water_logs').insert({ user_id: user.id, amount_ml: WATER_GLASS_ML, date: today })
+    await fetch('/api/water-logs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount_ml: WATER_GLASS_ML, date: today }),
+    })
     fetchData()
   }
 
@@ -125,10 +102,7 @@ export default function DashboardPage() {
   const waterGlasses = Math.floor(totalWater / WATER_GLASS_ML)
   const targetGlasses = Math.ceil(targets.water_ml / WATER_GLASS_ML)
   const stepsPct = Math.min(100, Math.round((todaySteps / STEP_GOAL) * 100))
-
-  const suggestedWorkout = profile
-    ? getWorkoutsForUser(profile.gender, profile.is_pregnant, profile.pregnancy_week)[0]
-    : null
+  const suggestedWorkout = profile ? getWorkoutsForUser(profile.gender, profile.is_pregnant, profile.pregnancy_week)[0] : null
 
   if (loading) {
     return (
@@ -140,19 +114,15 @@ export default function DashboardPage() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto pb-24">
-      {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl sm:text-3xl font-bold text-slate-800">
           שלום, {profile?.full_name?.split(' ')[0] ?? 'שם משתמש'} 👋
         </h1>
         <p className="text-slate-500 mt-1">
-          {new Date().toLocaleDateString('he-IL', {
-            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-          })}
+          {new Date().toLocaleDateString('he-IL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
         </p>
       </div>
 
-      {/* Pregnancy warning */}
       {profile?.is_pregnant && (
         <div className="bg-pink-50 border border-pink-200 rounded-2xl p-4 mb-6 flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 text-pink-500 flex-shrink-0 mt-0.5" />
@@ -161,177 +131,88 @@ export default function DashboardPage() {
               מצב הריון – שבוע {profile.pregnancy_week}
               {profile.has_gestational_diabetes && ' | סוכרת הריון'}
             </p>
-            <p className="text-pink-600 text-xs mt-1">
-              כל האימונים והתפריטים מותאמים למצב שלך. תמיד התייעצי עם הרופא שלך.
-            </p>
+            <p className="text-pink-600 text-xs mt-1">כל האימונים והתפריטים מותאמים למצב שלך. תמיד התייעצי עם הרופא שלך.</p>
           </div>
         </div>
       )}
 
-      {/* Stats row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-        <StatCard
-          icon={<Flame className="w-5 h-5 text-orange-500" />}
-          label="קלוריות"
-          value={Math.round(totalCalories)}
-          target={targets.calories}
-          unit="קק״ל"
-          pct={caloriesPct}
-          color="orange"
-        />
-        <StatCard
-          icon={<Droplets className="w-5 h-5 text-blue-500" />}
-          label="מים"
-          value={Math.round(totalWater / 100) / 10}
-          target={targets.water_ml / 1000}
-          unit="ליטר"
-          pct={waterPct}
-          color="blue"
-        />
-        <StatCard
-          icon={<Dumbbell className="w-5 h-5 text-emerald-500" />}
-          label="אימונים"
-          value={todayWorkouts}
-          target={1}
-          unit="היום"
-          pct={Math.min(100, todayWorkouts * 100)}
-          color="emerald"
-        />
-        <StatCard
-          icon={<Footprints className="w-5 h-5 text-purple-500" />}
-          label="צעדים"
-          value={todaySteps.toLocaleString('he-IL')}
-          target={STEP_GOAL.toLocaleString('he-IL')}
-          unit=""
-          pct={stepsPct}
-          color="purple"
-          onClick={() => { setStepsInput(todaySteps.toString()); setStepsModalOpen(true) }}
-          clickable
-        />
+        <StatCard icon={<Flame className="w-5 h-5 text-orange-500" />} label="קלוריות" value={Math.round(totalCalories)} target={targets.calories} unit="קק״ל" pct={caloriesPct} color="orange" />
+        <StatCard icon={<Droplets className="w-5 h-5 text-blue-500" />} label="מים" value={Math.round(totalWater / 100) / 10} target={targets.water_ml / 1000} unit="ליטר" pct={waterPct} color="blue" />
+        <StatCard icon={<Dumbbell className="w-5 h-5 text-emerald-500" />} label="אימונים" value={todayWorkouts} target={1} unit="היום" pct={Math.min(100, todayWorkouts * 100)} color="emerald" />
+        <StatCard icon={<Footprints className="w-5 h-5 text-purple-500" />} label="צעדים" value={todaySteps.toLocaleString('he-IL')} target={STEP_GOAL.toLocaleString('he-IL')} unit="" pct={stepsPct} color="purple"
+          onClick={() => { setStepsInput(todaySteps.toString()); setStepsModalOpen(true) }} clickable />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
-        {/* Water tracker */}
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold text-slate-800 flex items-center gap-2">
-              <Droplets className="w-5 h-5 text-blue-500" />
-              מעקב מים
+              <Droplets className="w-5 h-5 text-blue-500" />מעקב מים
             </h2>
             <span className="text-sm text-slate-500">{totalWater} / {targets.water_ml} מ"ל</span>
           </div>
           <div className="grid grid-cols-8 gap-1 mb-4">
             {Array.from({ length: Math.min(targetGlasses, 16) }).map((_, i) => (
-              <div
-                key={i}
-                className={`aspect-square rounded-lg flex items-center justify-center text-base transition-all ${
-                  i < waterGlasses ? 'bg-blue-100 text-blue-500' : 'bg-slate-100 text-slate-300'
-                }`}
-              >
-                💧
-              </div>
+              <div key={i} className={`aspect-square rounded-lg flex items-center justify-center text-base transition-all ${i < waterGlasses ? 'bg-blue-100 text-blue-500' : 'bg-slate-100 text-slate-300'}`}>💧</div>
             ))}
           </div>
           <div className="h-2 bg-slate-100 rounded-full overflow-hidden mb-4">
-            <div
-              className="h-full bg-blue-400 rounded-full transition-all duration-500"
-              style={{ width: `${waterPct}%` }}
-            />
+            <div className="h-full bg-blue-400 rounded-full transition-all duration-500" style={{ width: `${waterPct}%` }} />
           </div>
-          <button
-            onClick={addWater}
-            className="w-full flex items-center justify-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-600 font-medium py-3 rounded-xl transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            <span>הוסף כוס ({WATER_GLASS_ML} מ"ל)</span>
+          <button onClick={addWater} className="w-full flex items-center justify-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-600 font-medium py-3 rounded-xl transition-colors">
+            <Plus className="w-4 h-4" /><span>הוסף כוס ({WATER_GLASS_ML} מ"ל)</span>
           </button>
         </div>
 
-        {/* Step counter */}
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold text-slate-800 flex items-center gap-2">
-              <Footprints className="w-5 h-5 text-purple-500" />
-              מד צעדים
+              <Footprints className="w-5 h-5 text-purple-500" />מד צעדים
             </h2>
-            <button
-              onClick={() => { setStepsInput(todaySteps.toString()); setStepsModalOpen(true) }}
-              className="text-sm text-purple-600 hover:text-purple-700 font-medium"
-            >
-              עדכן
-            </button>
+            <button onClick={() => { setStepsInput(todaySteps.toString()); setStepsModalOpen(true) }} className="text-sm text-purple-600 hover:text-purple-700 font-medium">עדכן</button>
           </div>
-
           <div className="flex items-baseline gap-2 mb-3">
-            <span className="text-4xl font-bold text-slate-800">
-              {todaySteps.toLocaleString('he-IL')}
-            </span>
+            <span className="text-4xl font-bold text-slate-800">{todaySteps.toLocaleString('he-IL')}</span>
             <span className="text-slate-400 text-sm">/ {STEP_GOAL.toLocaleString('he-IL')}</span>
           </div>
-
           <div className="h-3 bg-slate-100 rounded-full overflow-hidden mb-3">
-            <div
-              className={`h-full rounded-full transition-all duration-500 ${
-                stepsPct >= 100 ? 'bg-purple-500' : 'bg-purple-400'
-              }`}
-              style={{ width: `${stepsPct}%` }}
-            />
+            <div className={`h-full rounded-full transition-all duration-500 ${stepsPct >= 100 ? 'bg-purple-500' : 'bg-purple-400'}`} style={{ width: `${stepsPct}%` }} />
           </div>
-
           <p className="text-xs text-slate-400 mb-4">
-            {stepsPct >= 100
-              ? '🎉 הגעת ליעד הצעדים היומי!'
-              : `נותרו ${(STEP_GOAL - todaySteps).toLocaleString('he-IL')} צעדים`}
+            {stepsPct >= 100 ? '🎉 הגעת ליעד הצעדים היומי!' : `נותרו ${(STEP_GOAL - todaySteps).toLocaleString('he-IL')} צעדים`}
           </p>
-
           <div className="bg-purple-50 border border-purple-100 rounded-xl p-3">
             <p className="text-xs text-purple-600 font-medium mb-1">💡 Apple Health & Apple Watch</p>
-            <p className="text-xs text-purple-500 leading-relaxed">
-              סנכרון אוטומטי עם Apple Health דורש אפליקציה נייטיב (React Native).
-              כרגע יש להזין צעדים ידנית מהשעון.
-            </p>
+            <p className="text-xs text-purple-500 leading-relaxed">סנכרון אוטומטי דורש אפליקציה נייטיב. כרגע יש להזין צעדים ידנית מהשעון.</p>
           </div>
         </div>
       </div>
 
-      {/* Weekly charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-          <h2 className="font-semibold text-slate-800 flex items-center gap-2 mb-4">
-            <TrendingUp className="w-5 h-5 text-emerald-500" />
-            אימונים שבועיים
-          </h2>
+          <h2 className="font-semibold text-slate-800 flex items-center gap-2 mb-4"><TrendingUp className="w-5 h-5 text-emerald-500" />אימונים שבועיים</h2>
           <div dir="ltr" className="h-36">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={weeklyData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <XAxis dataKey="day" tick={{ fontSize: 11, fill: '#94a3b8' }} />
                 <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} />
-                <Tooltip
-                  contentStyle={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', fontSize: '12px' }}
-                  formatter={(v) => [`${v} אימונים`, '']}
-                />
+                <Tooltip contentStyle={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', fontSize: '12px' }} formatter={(v) => [`${v} אימונים`, '']} />
                 <Bar dataKey="workouts" fill="#10b981" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
-
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-          <h2 className="font-semibold text-slate-800 flex items-center gap-2 mb-4">
-            <Footprints className="w-5 h-5 text-purple-500" />
-            צעדים שבועיים (אלפים)
-          </h2>
+          <h2 className="font-semibold text-slate-800 flex items-center gap-2 mb-4"><Footprints className="w-5 h-5 text-purple-500" />צעדים שבועיים (אלפים)</h2>
           <div dir="ltr" className="h-36">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={weeklyData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <XAxis dataKey="day" tick={{ fontSize: 11, fill: '#94a3b8' }} />
                 <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} />
-                <Tooltip
-                  contentStyle={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', fontSize: '12px' }}
-                  formatter={(v) => [`${v}k צעדים`, '']}
-                />
+                <Tooltip contentStyle={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', fontSize: '12px' }} formatter={(v) => [`${v}k צעדים`, '']} />
                 <Bar dataKey="steps" fill="#a855f7" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -339,77 +220,39 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Suggested workout */}
       {suggestedWorkout && (
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-          <h2 className="font-semibold text-slate-800 flex items-center gap-2 mb-4">
-            <Dumbbell className="w-5 h-5 text-emerald-500" />
-            אימון מומלץ להיום
-          </h2>
+          <h2 className="font-semibold text-slate-800 flex items-center gap-2 mb-4"><Dumbbell className="w-5 h-5 text-emerald-500" />אימון מומלץ להיום</h2>
           <div className="flex items-start gap-4">
             <div className="flex-1 min-w-0">
               <h3 className="font-semibold text-slate-800 mb-1">{suggestedWorkout.name}</h3>
               <p className="text-slate-500 text-sm mb-3">{suggestedWorkout.description}</p>
               <div className="flex flex-wrap gap-2">
-                <span className="text-xs bg-slate-100 text-slate-600 px-3 py-1 rounded-full">
-                  ⏱ {suggestedWorkout.duration} דקות
-                </span>
-                <span className="text-xs bg-orange-100 text-orange-600 px-3 py-1 rounded-full">
-                  🔥 {suggestedWorkout.calories} קק״ל
-                </span>
+                <span className="text-xs bg-slate-100 text-slate-600 px-3 py-1 rounded-full">⏱ {suggestedWorkout.duration} דקות</span>
+                <span className="text-xs bg-orange-100 text-orange-600 px-3 py-1 rounded-full">🔥 {suggestedWorkout.calories} קק״ל</span>
               </div>
             </div>
-            <a
-              href="/workouts"
-              className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-colors whitespace-nowrap flex-shrink-0"
-            >
-              לאימונים
-            </a>
+            <a href="/workouts" className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-colors whitespace-nowrap flex-shrink-0">לאימונים</a>
           </div>
         </div>
       )}
 
-      {/* Steps modal */}
       {stepsModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" dir="rtl">
           <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-slate-800 text-lg">עדכון צעדים</h3>
-              <button onClick={() => setStepsModalOpen(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
+              <button onClick={() => setStepsModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
             </div>
-            <p className="text-sm text-slate-500 mb-4">
-              הכנס את מספר הצעדים שביצעת היום (מהשעון / Apple Health שלך)
-            </p>
-            <input
-              type="number"
-              min="0"
-              max="100000"
-              placeholder="לדוגמה: 8500"
-              value={stepsInput}
-              onChange={(e) => setStepsInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && saveSteps()}
-              autoFocus
-              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-slate-800 text-lg text-center focus:outline-none focus:ring-2 focus:ring-purple-400 mb-4"
-            />
+            <p className="text-sm text-slate-500 mb-4">הכנס את מספר הצעדים שביצעת היום</p>
+            <input type="number" min="0" max="100000" placeholder="לדוגמה: 8500" value={stepsInput}
+              onChange={(e) => setStepsInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && saveSteps()} autoFocus
+              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-slate-800 text-lg text-center focus:outline-none focus:ring-2 focus:ring-purple-400 mb-4" />
             <div className="flex gap-3">
-              <button
-                onClick={() => setStepsModalOpen(false)}
-                className="flex-1 border border-slate-200 text-slate-600 py-3 rounded-xl text-sm font-medium"
-              >
-                ביטול
-              </button>
-              <button
-                onClick={saveSteps}
-                disabled={!stepsInput || savingSteps}
-                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-xl text-sm font-medium disabled:opacity-40 flex items-center justify-center gap-2"
-              >
-                {savingSteps ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Check className="w-4 h-4" />
-                )}
+              <button onClick={() => setStepsModalOpen(false)} className="flex-1 border border-slate-200 text-slate-600 py-3 rounded-xl text-sm font-medium">ביטול</button>
+              <button onClick={saveSteps} disabled={!stepsInput || savingSteps}
+                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-xl text-sm font-medium disabled:opacity-40 flex items-center justify-center gap-2">
+                {savingSteps ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                 שמור
               </button>
             </div>
@@ -420,30 +263,15 @@ export default function DashboardPage() {
   )
 }
 
-function StatCard({
-  icon, label, value, target, unit, pct, color, onClick, clickable,
-}: {
-  icon: React.ReactNode
-  label: string
-  value: number | string
-  target: number | string
-  unit: string
-  pct: number
-  color: 'orange' | 'blue' | 'emerald' | 'purple'
-  onClick?: () => void
-  clickable?: boolean
+function StatCard({ icon, label, value, target, unit, pct, color, onClick, clickable }: {
+  icon: React.ReactNode; label: string; value: number | string; target: number | string
+  unit: string; pct: number; color: 'orange' | 'blue' | 'emerald' | 'purple'; onClick?: () => void; clickable?: boolean
 }) {
   const colorMap = { orange: 'bg-orange-500', blue: 'bg-blue-400', emerald: 'bg-emerald-500', purple: 'bg-purple-500' }
   const Tag = clickable ? 'button' : 'div'
   return (
-    <Tag
-      onClick={onClick}
-      className={`bg-white rounded-2xl p-4 shadow-sm border border-slate-100 ${clickable ? 'hover:border-purple-200 transition-colors cursor-pointer text-right' : ''}`}
-    >
-      <div className="flex items-center gap-2 mb-2">
-        {icon}
-        <span className="text-xs font-medium text-slate-500">{label}</span>
-      </div>
+    <Tag onClick={onClick} className={`bg-white rounded-2xl p-4 shadow-sm border border-slate-100 ${clickable ? 'hover:border-purple-200 transition-colors cursor-pointer text-right' : ''}`}>
+      <div className="flex items-center gap-2 mb-2">{icon}<span className="text-xs font-medium text-slate-500">{label}</span></div>
       <div className="mb-1">
         <span className="text-xl font-bold text-slate-800">{value}</span>
         <span className="text-xs text-slate-400 mr-1">/ {target} {unit}</span>

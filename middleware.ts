@@ -1,74 +1,33 @@
-import { createServerClient } from '@supabase/ssr'
-import { NextResponse, type NextRequest } from 'next/server'
+import { auth } from '@/lib/auth'
+import { NextResponse } from 'next/server'
 
-export async function middleware(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request })
+export default auth((req) => {
+  const session = req.auth
+  const pathname = req.nextUrl.pathname
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          supabaseResponse = NextResponse.next({ request })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          )
-        },
-      },
-    }
-  )
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  const pathname = request.nextUrl.pathname
   const isPublicRoute =
-    pathname === '/' || pathname.startsWith('/auth') || pathname.startsWith('/api')
+    pathname === '/' ||
+    pathname.startsWith('/api/auth') ||
+    pathname.startsWith('/api/')
 
-  if (!user && !isPublicRoute) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/'
-    return NextResponse.redirect(url)
+  if (!session && !isPublicRoute) {
+    return NextResponse.redirect(new URL('/', req.url))
   }
 
-  if (user && pathname === '/') {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('setup_complete')
-      .eq('id', user.id)
-      .single()
-
-    const url = request.nextUrl.clone()
-    url.pathname = profile?.setup_complete ? '/dashboard' : '/setup'
-    return NextResponse.redirect(url)
+  if (session && pathname === '/') {
+    const dest = session.user.setup_complete ? '/dashboard' : '/setup'
+    return NextResponse.redirect(new URL(dest, req.url))
   }
 
   if (
-    user &&
+    session &&
+    !session.user.setup_complete &&
     pathname !== '/setup' &&
     !isPublicRoute
   ) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('setup_complete')
-      .eq('id', user.id)
-      .single()
-
-    if (!profile?.setup_complete) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/setup'
-      return NextResponse.redirect(url)
-    }
+    return NextResponse.redirect(new URL('/setup', req.url))
   }
-
-  return supabaseResponse
-}
+})
 
 export const config = {
   matcher: [
