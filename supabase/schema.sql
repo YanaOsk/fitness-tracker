@@ -1,9 +1,8 @@
 -- ============================================================
--- FitLife Database Schema
+-- FitLife Database Schema – Full Version
 -- Run this in the Supabase SQL Editor
 -- ============================================================
 
--- Enable UUID extension
 create extension if not exists "uuid-ossp";
 
 -- ============================================================
@@ -74,7 +73,34 @@ create table if not exists public.water_logs (
 );
 
 -- ============================================================
--- CHAT MESSAGES (optional – for persisting chat history)
+-- STEP LOGS  (NEW)
+-- ============================================================
+create table if not exists public.step_logs (
+  id         uuid default uuid_generate_v4() primary key,
+  user_id    uuid not null references public.profiles(id) on delete cascade,
+  steps      integer not null default 0,
+  date       date not null default current_date,
+  source     text not null default 'manual',  -- 'manual' | 'apple_health' | 'google_fit'
+  logged_at  timestamptz not null default now(),
+  unique (user_id, date)
+);
+
+-- ============================================================
+-- QUICK MEALS  (NEW)
+-- ============================================================
+create table if not exists public.quick_meals (
+  id             uuid default uuid_generate_v4() primary key,
+  user_id        uuid not null references public.profiles(id) on delete cascade,
+  name           text not null,
+  meal_type      text,
+  total_calories integer not null default 0,
+  description    text,
+  items          jsonb not null default '[]',
+  created_at     timestamptz not null default now()
+);
+
+-- ============================================================
+-- CHAT MESSAGES
 -- ============================================================
 create table if not exists public.chat_messages (
   id         uuid default uuid_generate_v4() primary key,
@@ -87,28 +113,26 @@ create table if not exists public.chat_messages (
 -- ============================================================
 -- ROW LEVEL SECURITY
 -- ============================================================
-alter table public.profiles        enable row level security;
-alter table public.workout_sessions enable row level security;
-alter table public.food_logs       enable row level security;
-alter table public.water_logs      enable row level security;
-alter table public.chat_messages   enable row level security;
+alter table public.profiles         enable row level security;
+alter table public.workout_sessions  enable row level security;
+alter table public.food_logs        enable row level security;
+alter table public.water_logs       enable row level security;
+alter table public.step_logs        enable row level security;
+alter table public.quick_meals      enable row level security;
+alter table public.chat_messages    enable row level security;
 
 -- Profiles
-create policy "Users can view own profile"   on public.profiles for select using (auth.uid() = id);
-create policy "Users can update own profile" on public.profiles for update using (auth.uid() = id);
-create policy "Users can insert own profile" on public.profiles for insert with check (auth.uid() = id);
+create policy "view own profile"   on public.profiles for select using (auth.uid() = id);
+create policy "update own profile" on public.profiles for update using (auth.uid() = id);
+create policy "insert own profile" on public.profiles for insert with check (auth.uid() = id);
 
--- Workout sessions
-create policy "Users manage own workout sessions" on public.workout_sessions for all using (auth.uid() = user_id);
-
--- Food logs
-create policy "Users manage own food logs" on public.food_logs for all using (auth.uid() = user_id);
-
--- Water logs
-create policy "Users manage own water logs" on public.water_logs for all using (auth.uid() = user_id);
-
--- Chat messages
-create policy "Users manage own chat messages" on public.chat_messages for all using (auth.uid() = user_id);
+-- All others: full ownership
+create policy "own workout_sessions" on public.workout_sessions for all using (auth.uid() = user_id);
+create policy "own food_logs"        on public.food_logs        for all using (auth.uid() = user_id);
+create policy "own water_logs"       on public.water_logs       for all using (auth.uid() = user_id);
+create policy "own step_logs"        on public.step_logs        for all using (auth.uid() = user_id);
+create policy "own quick_meals"      on public.quick_meals      for all using (auth.uid() = user_id);
+create policy "own chat_messages"    on public.chat_messages    for all using (auth.uid() = user_id);
 
 -- ============================================================
 -- AUTO-CREATE PROFILE ON SIGNUP
@@ -138,7 +162,9 @@ create trigger on_auth_user_created
 -- ============================================================
 -- INDEXES
 -- ============================================================
-create index if not exists idx_food_logs_user_date     on public.food_logs (user_id, date);
-create index if not exists idx_water_logs_user_date    on public.water_logs (user_id, date);
-create index if not exists idx_workout_sessions_user   on public.workout_sessions (user_id, completed_at);
-create index if not exists idx_chat_messages_user      on public.chat_messages (user_id, created_at);
+create index if not exists idx_food_logs_user_date      on public.food_logs (user_id, date);
+create index if not exists idx_water_logs_user_date     on public.water_logs (user_id, date);
+create index if not exists idx_step_logs_user_date      on public.step_logs (user_id, date);
+create index if not exists idx_workout_sessions_user    on public.workout_sessions (user_id, completed_at);
+create index if not exists idx_quick_meals_user         on public.quick_meals (user_id);
+create index if not exists idx_chat_messages_user       on public.chat_messages (user_id, created_at);
