@@ -12,6 +12,7 @@ import {
   Footprints, X, Check, Loader2,
 } from 'lucide-react'
 import { format, startOfWeek, addDays, isToday, parseISO } from 'date-fns'
+import { getPregnancyTip } from '@/lib/pregnancy-tips'
 
 const DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']
 const WATER_GLASS_ML = 250
@@ -123,18 +124,47 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {profile?.is_pregnant && (
-        <div className="bg-pink-50 border border-pink-200 rounded-2xl p-4 mb-6 flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-pink-500 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-pink-800 font-medium text-sm">
-              הריון – שבוע {profile.pregnancy_week}
-              {profile.has_gestational_diabetes && ' | סוכרת הריון'}
-            </p>
-            <p className="text-pink-600 text-xs mt-1">זכרי להתייעץ עם הרופא לפני כל שינוי בפעילות.</p>
-          </div>
-        </div>
-      )}
+      {profile?.is_pregnant && profile.pregnancy_week && (() => {
+        const tip = getPregnancyTip(profile.pregnancy_week)
+        return (
+          <>
+            <div className="bg-pink-50 border border-pink-200 rounded-2xl p-4 mb-4 flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-pink-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-pink-800 font-medium text-sm">
+                  הריון – שבוע {profile.pregnancy_week}
+                  {profile.has_gestational_diabetes && ' | סוכרת הריון'}
+                </p>
+                <p className="text-pink-600 text-xs mt-1">זכרי להתייעץ עם הרופאה לפני כל שינוי בפעילות.</p>
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-pink-50 to-rose-50 border border-pink-200 rounded-2xl p-5 mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-xl">🤰</span>
+                <h2 className="font-bold text-pink-900 text-base">שבוע {profile.pregnancy_week} — מה קורה?</h2>
+              </div>
+              <p className="text-pink-700 text-sm mb-4 leading-relaxed">{tip.highlight}</p>
+              <div className="space-y-3">
+                <div className="bg-white/70 rounded-xl p-3 flex gap-3">
+                  <span className="text-lg flex-shrink-0">🥗</span>
+                  <div>
+                    <p className="text-xs font-semibold text-pink-800 mb-0.5">תזונה השבוע</p>
+                    <p className="text-sm text-slate-700 leading-relaxed">{tip.nutrition}</p>
+                  </div>
+                </div>
+                <div className="bg-white/70 rounded-xl p-3 flex gap-3">
+                  <span className="text-lg flex-shrink-0">💪</span>
+                  <div>
+                    <p className="text-xs font-semibold text-pink-800 mb-0.5">אימון השבוע</p>
+                    <p className="text-sm text-slate-700 leading-relaxed">{tip.workout}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        )
+      })()}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
         <StatCard icon={<Flame className="w-5 h-5 text-orange-500" />} label="קלוריות" value={Math.round(totalCalories)} target={targets.calories} unit="קק״ל" pct={caloriesPct} color="orange" />

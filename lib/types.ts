@@ -13,6 +13,7 @@ export interface Profile {
   gender: Gender | null
   is_pregnant: boolean
   pregnancy_week: number | null
+  pregnancy_week_updated_at: string | null
   has_gestational_diabetes: boolean
   goals: Goal[]
   activity_level: ActivityLevel | null
