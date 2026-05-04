@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useSession } from 'next-auth/react'
 import { Activity, ChevronLeft, ChevronRight, Check } from 'lucide-react'
 import { Goal, ActivityLevel } from '@/lib/types'
 
@@ -16,9 +15,9 @@ const GOALS: { value: Goal; label: string; icon: string }[] = [
 
 const ACTIVITY_LEVELS: { value: ActivityLevel; label: string; desc: string }[] = [
   { value: 'sedentary', label: 'יושבני', desc: 'מעט מאוד פעילות גופנית' },
-  { value: 'light', label: 'קל', desc: 'פעילות קלה 1-3 פעמים בשבוע' },
-  { value: 'moderate', label: 'בינוני', desc: 'פעילות מתונה 3-5 פעמים בשבוע' },
-  { value: 'active', label: 'פעיל', desc: 'פעילות עצימה 6-7 פעמים בשבוע' },
+  { value: 'light', label: 'קל', desc: '1-3 אימונים בשבוע' },
+  { value: 'moderate', label: 'בינוני', desc: '3-5 אימונים בשבוע' },
+  { value: 'active', label: 'פעיל', desc: '6-7 אימונים בשבוע' },
   { value: 'very_active', label: 'פעיל מאוד', desc: 'ספורטאי / עבודה פיזית' },
 ]
 
@@ -40,7 +39,6 @@ const TOTAL_STEPS = 5
 
 export default function SetupPage() {
   const router = useRouter()
-  const { update } = useSession()
   const [step, setStep] = useState(1)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState<FormData>({
@@ -86,7 +84,7 @@ export default function SetupPage() {
         birth_year: form.birth_year ? parseInt(form.birth_year) : null,
         height_cm: form.height_cm ? parseInt(form.height_cm) : null,
         weight_kg: form.weight_kg ? parseFloat(form.weight_kg) : null,
-        target_weight_kg: form.target_weight_kg ? parseFloat(form.target_weight_kg) : null,
+        target_weight_kg: form.is_pregnant ? null : (form.target_weight_kg ? parseFloat(form.target_weight_kg) : null),
         is_pregnant: form.is_pregnant,
         pregnancy_week: form.is_pregnant && form.pregnancy_week ? parseInt(form.pregnancy_week) : null,
         has_gestational_diabetes: form.has_gestational_diabetes,
@@ -96,11 +94,10 @@ export default function SetupPage() {
         setup_complete: true,
       }),
     })
-    await update({ setup_complete: true })
     router.push('/dashboard')
   }
 
-  const stepTitles = ['מגדר', 'פרטים אישיים', form.gender === 'female' ? 'הריון' : 'מצב בריאות', 'יעדים', 'רמת פעילות']
+  const stepTitles = ['מגדר', 'פרטים', form.gender === 'female' ? 'הריון' : 'בריאות', 'יעדים', 'פעילות']
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-50 flex items-center justify-center px-4 py-10" dir="rtl">
@@ -116,7 +113,7 @@ export default function SetupPage() {
           <div className="mb-8">
             <div className="flex justify-between items-center mb-3">
               <span className="text-sm font-medium text-slate-700">{stepTitles[step - 1]}</span>
-              <span className="text-sm text-slate-400">שלב {step} מתוך {TOTAL_STEPS}</span>
+              <span className="text-sm text-slate-400">{step} / {TOTAL_STEPS}</span>
             </div>
             <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
               <div
@@ -129,7 +126,7 @@ export default function SetupPage() {
           {step === 1 && (
             <div>
               <h2 className="text-2xl font-bold text-slate-800 mb-2">מה המגדר שלך?</h2>
-              <p className="text-slate-500 mb-6">נתאים את האימונים והתפריטים בהתאם</p>
+              <p className="text-slate-500 mb-6">נבנה לך תוכנית מותאמת</p>
               <div className="grid grid-cols-2 gap-4">
                 {[{ value: 'female', label: 'אישה', emoji: '👩' }, { value: 'male', label: 'גבר', emoji: '👨' }].map(({ value, label, emoji }) => (
                   <button
@@ -148,7 +145,7 @@ export default function SetupPage() {
           {step === 2 && (
             <div>
               <h2 className="text-2xl font-bold text-slate-800 mb-2">פרטים אישיים</h2>
-              <p className="text-slate-500 mb-6">לחישוב צרכי קלוריות ומים מדויקים</p>
+              <p className="text-slate-500 mb-6">לחישוב קלוריות ומים יומי</p>
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -168,12 +165,28 @@ export default function SetupPage() {
                     <input type="number" placeholder="1990" value={form.birth_year} onChange={(e) => setForm({ ...form, birth_year: e.target.value })}
                       className="w-full border border-slate-200 rounded-xl px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent" />
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-slate-700 block mb-1">משקל יעד (ק"ג)</label>
-                    <input type="number" placeholder="60" value={form.target_weight_kg} onChange={(e) => setForm({ ...form, target_weight_kg: e.target.value })}
-                      className="w-full border border-slate-200 rounded-xl px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent" />
-                  </div>
+                  {!form.is_pregnant && (
+                    <div>
+                      <label className="text-sm font-medium text-slate-700 block mb-1">משקל יעד (ק"ג)</label>
+                      <input type="number" placeholder="60" value={form.target_weight_kg} onChange={(e) => setForm({ ...form, target_weight_kg: e.target.value })}
+                        className="w-full border border-slate-200 rounded-xl px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent" />
+                    </div>
+                  )}
                 </div>
+                {form.gender === 'female' && (
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <button onClick={() => setForm({ ...form, is_pregnant: false })}
+                      className={`p-4 rounded-2xl border-2 text-center transition-all ${!form.is_pregnant ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 hover:border-slate-300'}`}>
+                      <div className="text-2xl mb-1">🌸</div>
+                      <div className="font-medium text-slate-700 text-sm">לא בהריון</div>
+                    </button>
+                    <button onClick={() => setForm({ ...form, is_pregnant: true, target_weight_kg: '' })}
+                      className={`p-4 rounded-2xl border-2 text-center transition-all ${form.is_pregnant ? 'border-pink-500 bg-pink-50' : 'border-slate-200 hover:border-slate-300'}`}>
+                      <div className="text-2xl mb-1">🤰</div>
+                      <div className="font-medium text-slate-700 text-sm">בהריון</div>
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -183,7 +196,7 @@ export default function SetupPage() {
               {form.gender === 'female' ? (
                 <>
                   <h2 className="text-2xl font-bold text-slate-800 mb-2">מצב הריון</h2>
-                  <p className="text-slate-500 mb-6">חשוב להתאמת אימונים ותפריטים בטוחים</p>
+                  <p className="text-slate-500 mb-6">נתאים אימונים ותפריט בהתאם</p>
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <button onClick={() => setForm({ ...form, is_pregnant: false, pregnancy_week: '', has_gestational_diabetes: false })}
@@ -219,11 +232,10 @@ export default function SetupPage() {
               ) : (
                 <>
                   <h2 className="text-2xl font-bold text-slate-800 mb-2">הערות רפואיות</h2>
-                  <p className="text-slate-500 mb-6">מידע שיעזור לנו להתאים את האימונים עבורך</p>
+                  <p className="text-slate-500 mb-6">אופציונלי — יעזור להתאים אימונים</p>
                   <textarea placeholder="לדוגמה: בעיות גב, לחץ דם גבוה, כאבי ברכיים..." value={form.medical_notes}
                     onChange={(e) => setForm({ ...form, medical_notes: e.target.value })} rows={5}
                     className="w-full border border-slate-200 rounded-xl px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400 resize-none" />
-                  <p className="text-slate-400 text-xs mt-2">שדה זה אינו חובה</p>
                 </>
               )}
             </div>
@@ -232,7 +244,7 @@ export default function SetupPage() {
           {step === 4 && (
             <div>
               <h2 className="text-2xl font-bold text-slate-800 mb-2">מה היעדים שלך?</h2>
-              <p className="text-slate-500 mb-6">ניתן לבחור יותר מיעד אחד</p>
+              <p className="text-slate-500 mb-6">אפשר לבחור יותר מאחד</p>
               <div className="space-y-3">
                 {GOALS.filter(g => {
                   if (g.value === 'healthy_pregnancy') return form.gender === 'female' && form.is_pregnant
@@ -253,7 +265,7 @@ export default function SetupPage() {
           {step === 5 && (
             <div>
               <h2 className="text-2xl font-bold text-slate-800 mb-2">רמת פעילות</h2>
-              <p className="text-slate-500 mb-6">כמה אתה/ה פעיל/ה כרגע?</p>
+              <p className="text-slate-500 mb-6">כמה פעיל/ה אתה/את כרגע?</p>
               <div className="space-y-3">
                 {ACTIVITY_LEVELS.map(({ value, label, desc }) => (
                   <button key={value} onClick={() => setForm({ ...form, activity_level: value })}
@@ -294,7 +306,7 @@ export default function SetupPage() {
                 ) : (
                   <Check className="w-5 h-5" />
                 )}
-                <span>{saving ? 'שומר...' : 'סיום וכניסה'}</span>
+                <span>{saving ? 'שומר...' : 'סיום'}</span>
               </button>
             )}
           </div>

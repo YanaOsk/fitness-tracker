@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { signOut } from 'next-auth/react'
 import { Profile } from '@/lib/types'
 import {
   LayoutDashboard,
@@ -16,10 +15,10 @@ import {
 } from 'lucide-react'
 
 const navItems = [
-  { href: '/dashboard', label: 'דשבורד', icon: LayoutDashboard },
+  { href: '/dashboard', label: 'ראשי', icon: LayoutDashboard },
   { href: '/workouts', label: 'אימונים', icon: Dumbbell },
   { href: '/nutrition', label: 'תזונה', icon: Apple },
-  { href: '/chat', label: "צ'אט AI", icon: MessageCircle },
+  { href: '/chat', label: 'AI', icon: MessageCircle },
   { href: '/profile', label: 'פרופיל', icon: User },
 ]
 
@@ -36,7 +35,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [])
 
   const handleLogout = async () => {
-    await signOut({ callbackUrl: '/' })
+    await fetch('/api/auth/logout', { method: 'POST' })
+    router.push('/')
   }
 
   return (
@@ -77,14 +77,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               )}
               <div className="min-w-0">
                 <p className="text-sm font-medium text-slate-800 truncate">{profile.full_name ?? 'משתמש'}</p>
-                <p className="text-xs text-slate-400 truncate">{profile.email}</p>
               </div>
             </div>
           )}
           <button onClick={handleLogout}
             className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-500 hover:bg-red-50 hover:text-red-600 transition-all text-sm">
             <LogOut className="w-4 h-4" />
-            <span>התנתקות</span>
+            <span>החלף משתמש</span>
           </button>
         </div>
       </aside>

@@ -26,7 +26,7 @@ export async function PATCH(request: Request) {
       birth_year               = COALESCE(${birth_year ?? null}, birth_year),
       height_cm                = COALESCE(${height_cm ?? null}, height_cm),
       weight_kg                = COALESCE(${weight_kg ?? null}, weight_kg),
-      target_weight_kg         = COALESCE(${target_weight_kg ?? null}, target_weight_kg),
+      target_weight_kg         = ${target_weight_kg ?? null},
       is_pregnant              = COALESCE(${is_pregnant ?? null}, is_pregnant),
       pregnancy_week           = ${pregnancy_week ?? null},
       has_gestational_diabetes = COALESCE(${has_gestational_diabetes ?? null}, has_gestational_diabetes),

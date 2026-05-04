@@ -1,33 +1,25 @@
-import { auth } from '@/lib/auth'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 
-export default auth((req) => {
-  const session = req.auth
-  const pathname = req.nextUrl.pathname
+const VALID_IDS = new Set([
+  '00000000-0000-0000-0000-000000000001',
+  '00000000-0000-0000-0000-000000000002',
+])
 
-  const isPublicRoute =
-    pathname === '/' ||
-    pathname.startsWith('/api/auth') ||
-    pathname.startsWith('/api/')
+export function middleware(req: NextRequest) {
+  const userId = req.cookies.get('fit_user')?.value
+  const isLoggedIn = userId ? VALID_IDS.has(userId) : false
+  const { pathname } = req.nextUrl
 
-  if (!session && !isPublicRoute) {
+  const isPublicRoute = pathname === '/' || pathname.startsWith('/api/auth')
+
+  if (!isLoggedIn && !isPublicRoute) {
     return NextResponse.redirect(new URL('/', req.url))
   }
 
-  if (session && pathname === '/') {
-    const dest = session.user.setup_complete ? '/dashboard' : '/setup'
-    return NextResponse.redirect(new URL(dest, req.url))
+  if (isLoggedIn && pathname === '/') {
+    return NextResponse.redirect(new URL('/dashboard', req.url))
   }
-
-  if (
-    session &&
-    !session.user.setup_complete &&
-    pathname !== '/setup' &&
-    !isPublicRoute
-  ) {
-    return NextResponse.redirect(new URL('/setup', req.url))
-  }
-})
+}
 
 export const config = {
   matcher: [

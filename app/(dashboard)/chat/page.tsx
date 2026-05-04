@@ -13,8 +13,8 @@ const SUGGESTIONS = [
   'איך מתחילים יוגה בהריון?',
   'מה מותר לאכול עם סוכרת הריון?',
   'כמה מים לשתות ביום?',
-  'אילו תרגילים מחזקים את הגב?',
-  'איך אוכל להוריד שומן בטני?',
+  'אילו תרגילים טובים לגב?',
+  'איך שורפים שומן בטני?',
 ]
 
 export default function ChatPage() {
@@ -86,7 +86,7 @@ export default function ChatPage() {
     } catch {
       setMessages((prev) => {
         const updated = [...prev]
-        updated[updated.length - 1] = { role: 'assistant', content: 'מצטער, אירעה שגיאה. נסה שוב.' }
+        updated[updated.length - 1] = { role: 'assistant', content: 'אירעה שגיאה. נסה שוב.' }
         return updated
       })
     } finally {
@@ -107,7 +107,7 @@ export default function ChatPage() {
         </div>
         <div>
           <h1 className="font-bold text-slate-800">FitLife AI</h1>
-          <p className="text-xs text-slate-400">מאמן כושר ותזונה אישי</p>
+          <p className="text-xs text-slate-400">כושר ותזונה</p>
         </div>
         {streaming && (
           <div className="mr-auto flex items-center gap-1.5 text-xs text-emerald-600">
@@ -125,11 +125,11 @@ export default function ChatPage() {
               <Activity className="w-8 h-8 text-emerald-500" />
             </div>
             <div>
-              <h2 className="font-bold text-slate-800 text-xl mb-2">שלום! אני FitLife AI</h2>
-              <p className="text-slate-500 text-sm max-w-xs">שאל/י אותי כל שאלה על כושר, תזונה, תרגילים בטוחים בהריון ועוד.</p>
+              <h2 className="font-bold text-slate-800 text-xl mb-2">שאל/י אותי הכל</h2>
+              <p className="text-slate-500 text-sm max-w-xs">כושר, תזונה, תרגילים בהריון — אני כאן.</p>
             </div>
             <div className="w-full max-w-sm space-y-2 mt-2">
-              <p className="text-xs text-slate-400 mb-2">נושאים נפוצים:</p>
+              <p className="text-xs text-slate-400 mb-2">לדוגמה:</p>
               {SUGGESTIONS.map((s) => (
                 <button key={s} onClick={() => sendMessage(s)}
                   className="w-full text-right text-sm bg-white border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50 text-slate-600 px-4 py-2.5 rounded-xl transition-all">{s}</button>
@@ -163,7 +163,7 @@ export default function ChatPage() {
       <div className="bg-white border-t border-slate-100 p-4 flex-shrink-0 pb-safe">
         <div className="flex items-end gap-3 max-w-3xl mx-auto">
           <textarea ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown}
-            placeholder="שאל/י שאלה על כושר או תזונה..." rows={1} disabled={streaming}
+            placeholder="שאל/י שאלה..." rows={1} disabled={streaming}
             className="flex-1 border border-slate-200 rounded-2xl px-4 py-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent resize-none max-h-32 disabled:opacity-60"
             style={{ minHeight: '48px' }} />
           <button onClick={() => sendMessage(input)} disabled={!input.trim() || streaming}
@@ -171,7 +171,7 @@ export default function ChatPage() {
             <Send className="w-5 h-5" />
           </button>
         </div>
-        <p className="text-center text-xs text-slate-300 mt-2">AI עלול לטעות — תמיד התייעץ עם איש מקצוע בריאות</p>
+        <p className="text-center text-xs text-slate-300 mt-2">AI עלול לטעות — תמיד התייעץ עם איש מקצוע</p>
       </div>
     </div>
   )

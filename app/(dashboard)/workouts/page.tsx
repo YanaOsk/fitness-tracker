@@ -64,7 +64,7 @@ export default function WorkoutsPage() {
     <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl sm:text-3xl font-bold text-slate-800">תוכניות אימון</h1>
-        <p className="text-slate-500 mt-1">{workouts.length} אימונים מותאמים אישית עבורך</p>
+        <p className="text-slate-500 mt-1">{workouts.length} תוכניות לבחירה</p>
       </div>
 
       {profile?.is_pregnant && (
@@ -72,7 +72,7 @@ export default function WorkoutsPage() {
           <div className="flex items-start gap-3">
             <AlertTriangle className="w-5 h-5 text-pink-500 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-pink-800 font-semibold text-sm mb-1">אימונים מאושרים להריון – שבוע {profile.pregnancy_week}</p>
+              <p className="text-pink-800 font-semibold text-sm mb-1">אימונים לשבוע {profile.pregnancy_week}</p>
               <ul className="text-pink-600 text-xs space-y-1">
                 <li>• כל האימונים מסומנים כבטוחים להריון שלך</li>
                 <li>• הפסיקי מיד אם מרגישה כאב, סחרחורת או קוצר נשימה</li>

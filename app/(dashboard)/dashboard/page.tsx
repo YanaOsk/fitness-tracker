@@ -116,7 +116,7 @@ export default function DashboardPage() {
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto pb-24">
       <div className="mb-6">
         <h1 className="text-2xl sm:text-3xl font-bold text-slate-800">
-          שלום, {profile?.full_name?.split(' ')[0] ?? 'שם משתמש'} 👋
+          היי, {profile?.full_name?.split(' ')[0] ?? ''} 👋
         </h1>
         <p className="text-slate-500 mt-1">
           {new Date().toLocaleDateString('he-IL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
@@ -128,10 +128,10 @@ export default function DashboardPage() {
           <AlertTriangle className="w-5 h-5 text-pink-500 flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-pink-800 font-medium text-sm">
-              מצב הריון – שבוע {profile.pregnancy_week}
+              הריון – שבוע {profile.pregnancy_week}
               {profile.has_gestational_diabetes && ' | סוכרת הריון'}
             </p>
-            <p className="text-pink-600 text-xs mt-1">כל האימונים והתפריטים מותאמים למצב שלך. תמיד התייעצי עם הרופא שלך.</p>
+            <p className="text-pink-600 text-xs mt-1">זכרי להתייעץ עם הרופא לפני כל שינוי בפעילות.</p>
           </div>
         </div>
       )}
@@ -168,7 +168,7 @@ export default function DashboardPage() {
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold text-slate-800 flex items-center gap-2">
-              <Footprints className="w-5 h-5 text-purple-500" />מד צעדים
+              <Footprints className="w-5 h-5 text-purple-500" />צעדים
             </h2>
             <button onClick={() => { setStepsInput(todaySteps.toString()); setStepsModalOpen(true) }} className="text-sm text-purple-600 hover:text-purple-700 font-medium">עדכן</button>
           </div>
@@ -184,7 +184,7 @@ export default function DashboardPage() {
           </p>
           <div className="bg-purple-50 border border-purple-100 rounded-xl p-3">
             <p className="text-xs text-purple-600 font-medium mb-1">💡 Apple Health & Apple Watch</p>
-            <p className="text-xs text-purple-500 leading-relaxed">סנכרון אוטומטי דורש אפליקציה נייטיב. כרגע יש להזין צעדים ידנית מהשעון.</p>
+            <p className="text-xs text-purple-500 leading-relaxed">הזן ידנית מהשעון או הטלפון</p>
           </div>
         </div>
       </div>
@@ -205,7 +205,7 @@ export default function DashboardPage() {
           </div>
         </div>
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-          <h2 className="font-semibold text-slate-800 flex items-center gap-2 mb-4"><Footprints className="w-5 h-5 text-purple-500" />צעדים שבועיים (אלפים)</h2>
+          <h2 className="font-semibold text-slate-800 flex items-center gap-2 mb-4"><Footprints className="w-5 h-5 text-purple-500" />צעדים שבועיים</h2>
           <div dir="ltr" className="h-36">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={weeklyData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
@@ -222,7 +222,7 @@ export default function DashboardPage() {
 
       {suggestedWorkout && (
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-          <h2 className="font-semibold text-slate-800 flex items-center gap-2 mb-4"><Dumbbell className="w-5 h-5 text-emerald-500" />אימון מומלץ להיום</h2>
+          <h2 className="font-semibold text-slate-800 flex items-center gap-2 mb-4"><Dumbbell className="w-5 h-5 text-emerald-500" />אימון להיום</h2>
           <div className="flex items-start gap-4">
             <div className="flex-1 min-w-0">
               <h3 className="font-semibold text-slate-800 mb-1">{suggestedWorkout.name}</h3>
@@ -241,10 +241,10 @@ export default function DashboardPage() {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" dir="rtl">
           <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-slate-800 text-lg">עדכון צעדים</h3>
+              <h3 className="font-bold text-slate-800 text-lg">עדכן צעדים</h3>
               <button onClick={() => setStepsModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
             </div>
-            <p className="text-sm text-slate-500 mb-4">הכנס את מספר הצעדים שביצעת היום</p>
+            <p className="text-sm text-slate-500 mb-4">כמה צעדים עשית היום?</p>
             <input type="number" min="0" max="100000" placeholder="לדוגמה: 8500" value={stepsInput}
               onChange={(e) => setStepsInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && saveSteps()} autoFocus
               className="w-full border border-slate-200 rounded-xl px-4 py-3 text-slate-800 text-lg text-center focus:outline-none focus:ring-2 focus:ring-purple-400 mb-4" />

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { signOut } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import { Profile, Goal, ActivityLevel } from '@/lib/types'
 import { User, Save, LogOut, Check } from 'lucide-react'
 
@@ -22,12 +22,13 @@ const ACTIVITY_LEVELS: { value: ActivityLevel; label: string }[] = [
 ]
 
 export default function ProfilePage() {
+  const router = useRouter()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [form, setForm] = useState({
     height_cm: '', weight_kg: '', target_weight_kg: '', pregnancy_week: '',
-    has_gestational_diabetes: false, goals: [] as Goal[], activity_level: '' as ActivityLevel | '', medical_notes: '',
+    has_gestational_diabetes: false, skip_target_weight: false, goals: [] as Goal[], activity_level: '' as ActivityLevel | '', medical_notes: '',
   })
 
   useEffect(() => {
@@ -41,6 +42,7 @@ export default function ProfilePage() {
           target_weight_kg: p.target_weight_kg?.toString() ?? '',
           pregnancy_week: p.pregnancy_week?.toString() ?? '',
           has_gestational_diabetes: p.has_gestational_diabetes,
+          skip_target_weight: p.is_pregnant && !p.target_weight_kg,
           goals: p.goals ?? [],
           activity_level: p.activity_level ?? '',
           medical_notes: p.medical_notes ?? '',
@@ -65,7 +67,7 @@ export default function ProfilePage() {
       body: JSON.stringify({
         height_cm: form.height_cm ? parseInt(form.height_cm) : null,
         weight_kg: form.weight_kg ? parseFloat(form.weight_kg) : null,
-        target_weight_kg: form.target_weight_kg ? parseFloat(form.target_weight_kg) : null,
+        target_weight_kg: form.skip_target_weight ? null : (form.target_weight_kg ? parseFloat(form.target_weight_kg) : null),
         pregnancy_week: profile.is_pregnant && form.pregnancy_week ? parseInt(form.pregnancy_week) : null,
         has_gestational_diabetes: form.has_gestational_diabetes,
         goals: form.goals,
@@ -78,7 +80,10 @@ export default function ProfilePage() {
     setTimeout(() => setSaved(false), 3000)
   }
 
-  const handleLogout = () => signOut({ callbackUrl: '/' })
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' })
+    router.push('/')
+  }
 
   if (!profile) {
     return (
@@ -92,34 +97,29 @@ export default function ProfilePage() {
     <div className="p-4 sm:p-6 lg:p-8 max-w-2xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl sm:text-3xl font-bold text-slate-800">הפרופיל שלי</h1>
-        <p className="text-slate-500 mt-1">עדכן את הפרטים שלך</p>
+        <p className="text-slate-500 mt-1">עדכן פרטים</p>
       </div>
 
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 mb-5 flex items-center gap-4">
-        {profile.avatar_url ? (
-          <img src={profile.avatar_url} alt="avatar" className="w-14 h-14 rounded-full object-cover" />
-        ) : (
-          <div className="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center">
-            <User className="w-7 h-7 text-emerald-600" />
-          </div>
-        )}
+        <div className="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center">
+          <User className="w-7 h-7 text-emerald-600" />
+        </div>
         <div>
           <p className="font-bold text-slate-800 text-lg">{profile.full_name}</p>
-          <p className="text-slate-500 text-sm">{profile.email}</p>
           <div className="flex gap-2 mt-1">
             <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{profile.gender === 'female' ? 'נקבה' : 'זכר'}</span>
-            {profile.is_pregnant && <span className="text-xs bg-pink-100 text-pink-600 px-2 py-0.5 rounded-full">🤰 הריון שבוע {profile.pregnancy_week}</span>}
+            {profile.is_pregnant && <span className="text-xs bg-pink-100 text-pink-600 px-2 py-0.5 rounded-full">הריון שבוע {profile.pregnancy_week}</span>}
           </div>
         </div>
       </div>
 
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 mb-5">
-        <h2 className="font-semibold text-slate-800 mb-4">פרטים גופניים</h2>
+        <h2 className="font-semibold text-slate-800 mb-4">נתונים גופניים</h2>
         <div className="grid grid-cols-2 gap-4">
           {[
             { label: 'גובה (ס"מ)', key: 'height_cm', placeholder: '170' },
             { label: 'משקל (ק"ג)', key: 'weight_kg', placeholder: '65' },
-            { label: 'משקל יעד (ק"ג)', key: 'target_weight_kg', placeholder: '60' },
+            ...(!form.skip_target_weight ? [{ label: 'משקל יעד (ק"ג)', key: 'target_weight_kg', placeholder: '60' }] : []),
             ...(profile.is_pregnant ? [{ label: 'שבוע הריון', key: 'pregnancy_week', placeholder: '24' }] : []),
           ].map(({ label, key, placeholder }) => (
             <div key={key}>
@@ -132,6 +132,15 @@ export default function ProfilePage() {
         </div>
         {profile.is_pregnant && (
           <label className="flex items-center gap-3 mt-4 cursor-pointer">
+            <div onClick={() => setForm({ ...form, skip_target_weight: !form.skip_target_weight })}
+              className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${form.skip_target_weight ? 'bg-pink-500 border-pink-500' : 'border-slate-300'}`}>
+              {form.skip_target_weight && <Check className="w-3 h-3 text-white" />}
+            </div>
+            <span className="text-sm text-slate-700">בהריון - לא מתמקדת במשקל יעד כרגע</span>
+          </label>
+        )}
+        {profile.is_pregnant && (
+          <label className="flex items-center gap-3 mt-3 cursor-pointer">
             <div onClick={() => setForm({ ...form, has_gestational_diabetes: !form.has_gestational_diabetes })}
               className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${form.has_gestational_diabetes ? 'bg-pink-500 border-pink-500' : 'border-slate-300'}`}>
               {form.has_gestational_diabetes && <Check className="w-3 h-3 text-white" />}
@@ -178,8 +187,8 @@ export default function ProfilePage() {
           {saving ? <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : saved ? <Check className="w-5 h-5" /> : <Save className="w-5 h-5" />}
           <span>{saving ? 'שומר...' : saved ? 'נשמר!' : 'שמור שינויים'}</span>
         </button>
-        <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-medium text-sm border-2 border-red-200 text-red-500 hover:bg-red-50 transition-all">
-          <LogOut className="w-5 h-5" /><span>התנתקות</span>
+        <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-medium text-sm border-2 border-slate-200 text-slate-500 hover:bg-slate-50 transition-all">
+          <LogOut className="w-5 h-5" /><span>החלף משתמש</span>
         </button>
       </div>
     </div>
