@@ -88,11 +88,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </aside>
 
-      <main className="flex-1 lg:mr-64 pb-20 lg:pb-0">
+      <main className="flex-1 lg:mr-64 mobile-nav-pb">
         {children}
       </main>
 
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 z-30 safe-area-pb">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 z-30" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
         <div className="flex items-center">
           {navItems.map(({ href, label, icon: Icon }) => {
             const isActive = pathname === href

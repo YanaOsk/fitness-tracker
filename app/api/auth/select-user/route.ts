@@ -18,8 +18,13 @@ export async function POST(req: NextRequest) {
     ON CONFLICT (id) DO NOTHING
   `
 
-  const rows = await sql`SELECT setup_complete FROM profiles WHERE id = ${profile.id} LIMIT 1`
-  const setupComplete = rows[0]?.setup_complete ?? false
+  const rows = await sql`SELECT setup_complete, height_cm, weight_kg FROM profiles WHERE id = ${profile.id} LIMIT 1`
+  const p = rows[0]
+  const setupComplete = p?.setup_complete === true || (p?.height_cm != null && p?.weight_kg != null)
+
+  if (setupComplete && !p?.setup_complete) {
+    await sql`UPDATE profiles SET setup_complete = true WHERE id = ${profile.id}`
+  }
 
   const res = NextResponse.json({ ok: true, redirect: setupComplete ? '/dashboard' : '/setup' })
   res.cookies.set('fit_user', profile.id, {

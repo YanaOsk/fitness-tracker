@@ -100,7 +100,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen" dir="rtl">
+    <div className="flex flex-col chat-height" dir="rtl">
       <div className="bg-white border-b border-slate-100 p-4 flex items-center gap-3 flex-shrink-0">
         <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
           <Bot className="w-6 h-6 text-emerald-600" />
@@ -160,7 +160,7 @@ export default function ChatPage() {
         <div ref={bottomRef} />
       </div>
 
-      <div className="bg-white border-t border-slate-100 p-4 flex-shrink-0 pb-safe">
+      <div className="bg-white border-t border-slate-100 p-4 flex-shrink-0">
         <div className="flex items-end gap-3 max-w-3xl mx-auto">
           <textarea ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown}
             placeholder="שאל/י שאלה..." rows={1} disabled={streaming}
