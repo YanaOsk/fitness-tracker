@@ -8,9 +8,10 @@ import {
 } from '@/lib/nutrition-data'
 import {
   Plus, X, AlertTriangle, Sparkles, Zap, Coffee, Loader2,
-  BookOpen, ChevronDown, ChevronUp, Star,
+  BookOpen, ChevronDown, ChevronUp, Star, UtensilsCrossed,
 } from 'lucide-react'
 import { format } from 'date-fns'
+import { getMealRecommendations, getDailyCalorieTarget, type MealOption } from '@/lib/meal-recommendations'
 
 interface AiEstimate {
   food_name: string; calories: number; protein_g: number; carbs_g: number; fat_g: number; serving_description: string
@@ -42,7 +43,7 @@ const QUICK_DRINKS = [
   { name: 'שוקו (200 מ"ל)', calories: 160, protein_g: 5, carbs_g: 28, fat_g: 3, emoji: '🥛' },
 ]
 
-type TabType = 'ai' | 'exchange' | 'quick'
+type TabType = 'ai' | 'exchange' | 'quick' | 'menu'
 
 export default function NutritionPage() {
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -219,10 +220,11 @@ export default function NutritionPage() {
           ))}
         </div>
 
-        <div className="flex border-b border-slate-100 mb-4">
+        <div className="flex border-b border-slate-100 mb-4 overflow-x-auto">
           {[
             { id: 'ai' as TabType, label: 'הכנסה חופשית', icon: <Sparkles className="w-4 h-4" /> },
-            { id: 'exchange' as TabType, label: 'רשימות החלפה', icon: <BookOpen className="w-4 h-4" /> },
+            { id: 'menu' as TabType, label: 'תפריט מומלץ', icon: <UtensilsCrossed className="w-4 h-4" /> },
+            { id: 'exchange' as TabType, label: 'החלפות', icon: <BookOpen className="w-4 h-4" /> },
             { id: 'quick' as TabType, label: 'מהיר', icon: <Zap className="w-4 h-4" /> },
           ].map(({ id, label, icon }) => (
             <button key={id} onClick={() => setActiveTab(id)}
@@ -288,6 +290,16 @@ export default function NutritionPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {activeTab === 'menu' && (
+          <MenuTab profile={profile} mealType={mealType} onAdd={async (option) => {
+            await fetch('/api/food-logs', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ meal_type: mealType, food_name: option.name, calories: option.calories, protein_g: option.protein_g, carbs_g: option.carbs_g, fat_g: option.fat_g, date: today }),
+            })
+            fetchData()
+          }} />
         )}
 
         {activeTab === 'exchange' && (
@@ -428,6 +440,93 @@ export default function NutritionPage() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function MenuTab({ profile, mealType, onAdd }: {
+  profile: Profile | null
+  mealType: MealType
+  onAdd: (option: MealOption) => Promise<void>
+}) {
+  const slots = getMealRecommendations(profile)
+  const dailyCal = getDailyCalorieTarget(profile)
+  const isGDM = profile?.has_gestational_diabetes
+  const [adding, setAdding] = useState<string | null>(null)
+  const [expanded, setExpanded] = useState<string | null>(slots[0]?.type ?? null)
+
+  const handleAdd = async (option: MealOption, slotType: string) => {
+    setAdding(`${slotType}-${option.name}`)
+    await onAdd(option)
+    setAdding(null)
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-sm text-slate-500">תפריט יומי מומלץ • {dailyCal} קל׳ ביום</p>
+        {isGDM && <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">סוכרת הריון — בטוח מסומן ✓</span>}
+      </div>
+
+      <div className="space-y-3">
+        {slots.map((slot) => {
+          const isOpen = expanded === slot.type
+          return (
+            <div key={slot.type} className="border border-slate-200 rounded-2xl overflow-hidden">
+              <button
+                onClick={() => setExpanded(isOpen ? null : slot.type)}
+                className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">{slot.emoji}</span>
+                  <span className="font-semibold text-slate-800 text-sm">{slot.label}</span>
+                  <span className="text-xs text-slate-400">{slot.options.length} אפשרויות</span>
+                </div>
+                {isOpen ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+              </button>
+
+              {isOpen && (
+                <div className="divide-y divide-slate-100">
+                  {slot.options.map((option) => {
+                    const key = `${slot.type}-${option.name}`
+                    const isAdding = adding === key
+                    return (
+                      <div key={option.name} className={`p-3 flex items-start gap-3 ${isGDM && option.gdm_safe ? 'bg-emerald-50/40' : ''}`}>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start gap-2 flex-wrap mb-1">
+                            <p className="font-medium text-slate-800 text-sm">{option.name}</p>
+                            {isGDM && option.gdm_safe && <span className="text-xs text-emerald-600">✓ GDM</span>}
+                          </div>
+                          <p className="text-xs text-slate-500 mb-2 leading-relaxed">{option.description}</p>
+                          <div className="flex flex-wrap gap-1.5 mb-2">
+                            <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">{option.calories} קל׳</span>
+                            <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">ח׳ {option.protein_g}גר׳</span>
+                            <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">פ׳ {option.carbs_g}גר׳</span>
+                            {option.tags.filter(t => !t.startsWith('⭐')).slice(0, 2).map((tag) => (
+                              <span key={tag} className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{tag}</span>
+                            ))}
+                            {option.tags.find(t => t.startsWith('⭐')) && (
+                              <span className="text-xs bg-pink-100 text-pink-700 px-2 py-0.5 rounded-full">⭐ הריון</span>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleAdd(option, slot.type)}
+                          disabled={!!adding}
+                          className="flex-shrink-0 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs px-3 py-2 rounded-xl flex items-center gap-1 transition-all"
+                        >
+                          {isAdding ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                          הוסף
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
