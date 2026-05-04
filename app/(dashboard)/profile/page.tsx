@@ -233,15 +233,15 @@ export default function ProfilePage() {
             </div>
 
             <div className="space-y-2.5">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">הוראות הגדרה:</p>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">הוראות הגדרה (צעד אחר צעד):</p>
               {[
-                'פתחי את אפליקציית Shortcuts באייפון',
-                'לחצי + ליצירת Shortcut חדש',
-                'הוסיפי פעולה: Health → Read Data → Steps',
-                'הוסיפי פעולה: URL → הכניסי את הכתובת שהעתקת',
-                'בסוף הכתובת צרפי את כמות הצעדים (Shortcut Input)',
-                'הוסיפי פעולה: Get Contents of URL',
-                'הגדירי את ה-Shortcut לרוץ אוטומטית כל יום בלילה',
+                'פתחי את אפליקציית "קיצורי דרך" (Shortcuts) באייפון',
+                'לחצי על + למעלה ימין ליצירת קיצור דרך חדש',
+                'לחצי "הוסף פעולה" ← חפשי "Health" ← בחרי "Find Health Samples" ← סוג: Steps, Period: Today',
+                'הוסיפי פעולה נוספת: חפשי "Calculate Statistics" ← בחרי Sum ← על Health Samples',
+                'הוסיפי פעולה: חפשי "URL" ← הדביקי את הכתובת שהעתקת, ואחרי steps= הוסיפי את המשתנה Calculated Result',
+                'הוסיפי פעולה: חפשי "Get Contents of URL" ← זה שולח את הצעדים לאפליקציה',
+                'לחצי על שם הקיצור למעלה ← "הוסף לאוטומציה" ← "שעה ביום" ← 23:00 כל יום ← כבי את "שאל לפני הרצה"',
               ].map((step, i) => (
                 <div key={i} className="flex items-start gap-3">
                   <div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">{i + 1}</div>
