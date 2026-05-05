@@ -141,7 +141,7 @@ export default function DashboardPage() {
               <AlertTriangle className="w-5 h-5 text-pink-500 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="text-pink-800 font-medium text-sm">
-                  הריון – שבוע {profile.pregnancy_week}
+                  הריון – שבוע {profile.pregnancy_week}{(profile as any).pregnancy_days_in_week > 0 ? ` ו-${(profile as any).pregnancy_days_in_week} ימים` : ''}
                   {profile.has_gestational_diabetes && ' | סוכרת הריון'}
                 </p>
                 <p className="text-pink-600 text-xs mt-1">זכרי להתייעץ עם הרופאה לפני כל שינוי בפעילות.</p>
@@ -151,7 +151,7 @@ export default function DashboardPage() {
             <div className="bg-gradient-to-br from-pink-50 to-rose-50 border border-pink-200 rounded-2xl p-5 mb-6">
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-xl">🤰</span>
-                <h2 className="font-bold text-pink-900 text-base">שבוע {profile.pregnancy_week} — מה קורה?</h2>
+                <h2 className="font-bold text-pink-900 text-base">שבוע {profile.pregnancy_week}{(profile as any).pregnancy_days_in_week > 0 ? `+${(profile as any).pregnancy_days_in_week}` : ''} — מה קורה?</h2>
               </div>
               <p className="text-pink-700 text-sm mb-4 leading-relaxed">{tip.highlight}</p>
               <div className="space-y-3">

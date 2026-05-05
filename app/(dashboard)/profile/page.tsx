@@ -129,7 +129,7 @@ export default function ProfilePage() {
           <p className="font-bold text-slate-800 text-lg">{profile.full_name}</p>
           <div className="flex gap-2 mt-1">
             <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{profile.gender === 'female' ? 'נקבה' : 'זכר'}</span>
-            {profile.is_pregnant && <span className="text-xs bg-pink-100 text-pink-600 px-2 py-0.5 rounded-full">הריון שבוע {profile.pregnancy_week}</span>}
+            {profile.is_pregnant && <span className="text-xs bg-pink-100 text-pink-600 px-2 py-0.5 rounded-full">הריון שבוע {profile.pregnancy_week}{(profile as any).pregnancy_days_in_week > 0 ? `+${(profile as any).pregnancy_days_in_week} ימים` : ''}</span>}
           </div>
         </div>
       </div>
