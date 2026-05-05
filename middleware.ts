@@ -10,7 +10,7 @@ export function middleware(req: NextRequest) {
   const isLoggedIn = userId ? VALID_IDS.has(userId) : false
   const { pathname } = req.nextUrl
 
-  const isPublicRoute = pathname === '/' || pathname.startsWith('/api/auth')
+  const isPublicRoute = pathname === '/' || pathname.startsWith('/api/auth') || pathname === '/api/steps/sync'
 
   if (!isLoggedIn && !isPublicRoute) {
     return NextResponse.redirect(new URL('/', req.url))
