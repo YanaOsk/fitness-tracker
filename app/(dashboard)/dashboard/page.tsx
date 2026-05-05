@@ -62,6 +62,12 @@ export default function DashboardPage() {
 
   useEffect(() => { fetchData() }, [fetchData])
 
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchData() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [fetchData])
+
   const addWater = async () => {
     await fetch('/api/water-logs', {
       method: 'POST',
