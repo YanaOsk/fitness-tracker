@@ -3,8 +3,13 @@
 import { useEffect, useState } from 'react'
 import { Profile, WorkoutPlan } from '@/lib/types'
 import { getWorkoutsForUser, workoutTypeLabels, workoutTypeColors, intensityLabels, intensityColors } from '@/lib/workout-data'
-import { AlertTriangle, Clock, Flame, ChevronDown, ChevronUp, CheckCircle } from 'lucide-react'
+import { AlertTriangle, Clock, Flame, ChevronDown, ChevronUp, CheckCircle, Play } from 'lucide-react'
 import { format } from 'date-fns'
+
+function getYouTubeId(url: string): string | null {
+  const match = url.match(/[?&]v=([^&]+)/)
+  return match ? match[1] : null
+}
 
 export default function WorkoutsPage() {
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -122,21 +127,42 @@ export default function WorkoutsPage() {
                 <div className="px-5 pb-4">
                   <h4 className="text-sm font-semibold text-slate-700 mb-3">תרגילים:</h4>
                   <div className="space-y-2">
-                    {workout.exercises.map((ex: import('@/lib/types').WorkoutExercise, i: number) => (
-                      <div key={i} className="flex items-start gap-3 bg-slate-50 rounded-xl p-3">
-                        <div className="w-6 h-6 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">{i + 1}</div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-slate-700 text-sm">{ex.name}</p>
-                          <div className="flex flex-wrap gap-2 mt-1">
-                            {ex.sets && <span className="text-xs text-slate-500">{ex.sets} סטים</span>}
-                            {ex.reps && <span className="text-xs text-slate-500">× {ex.reps}</span>}
-                            {ex.duration && <span className="text-xs text-slate-500">{ex.duration}</span>}
-                            {ex.rest && <span className="text-xs text-slate-400">מנוחה: {ex.rest}</span>}
-                            {ex.notes && <span className="text-xs text-slate-400 italic">{ex.notes}</span>}
+                    {workout.exercises.map((ex: import('@/lib/types').WorkoutExercise, i: number) => {
+                      const videoId = ex.videoUrl ? getYouTubeId(ex.videoUrl) : null
+                      return (
+                      <div key={i} className="bg-slate-50 rounded-xl p-3">
+                        <div className="flex items-start gap-3">
+                          <div className="w-6 h-6 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">{i + 1}</div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-slate-700 text-sm">{ex.name}</p>
+                            <div className="flex flex-wrap gap-2 mt-1">
+                              {ex.sets && <span className="text-xs text-slate-500">{ex.sets} סטים</span>}
+                              {ex.reps && <span className="text-xs text-slate-500">× {ex.reps}</span>}
+                              {ex.duration && <span className="text-xs text-slate-500">{ex.duration}</span>}
+                              {ex.rest && <span className="text-xs text-slate-400">מנוחה: {ex.rest}</span>}
+                              {ex.notes && <span className="text-xs text-slate-400 italic">{ex.notes}</span>}
+                            </div>
                           </div>
                         </div>
+                        {videoId && (
+                          <a href={ex.videoUrl} target="_blank" rel="noopener noreferrer" className="mt-2 block relative rounded-lg overflow-hidden group">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={`https://img.youtube.com/vi/${videoId}/mqdefault.jpg`}
+                              alt={ex.name}
+                              className="w-full h-28 object-cover"
+                            />
+                            <div className="absolute inset-0 bg-black/30 flex items-center justify-center group-hover:bg-black/40 transition-colors">
+                              <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center shadow-lg">
+                                <Play className="w-5 h-5 text-white fill-white mr-[-2px]" />
+                              </div>
+                            </div>
+                            <span className="absolute bottom-1.5 right-2 text-white text-xs font-medium drop-shadow">צפי בהדגמה ↗</span>
+                          </a>
+                        )}
                       </div>
-                    ))}
+                    )})}
+
                   </div>
                 </div>
               )}

@@ -77,6 +77,7 @@ export interface WorkoutExercise {
   rest?: string
   notes?: string
   pregnancySafe?: boolean
+  videoUrl?: string
 }
 
 export interface WorkoutPlan {
