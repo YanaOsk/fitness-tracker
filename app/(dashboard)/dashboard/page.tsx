@@ -49,7 +49,10 @@ export default function DashboardPage() {
     if (Array.isArray(workoutRes)) setWeeklyWorkouts(workoutRes as WorkoutSession[])
     if (Array.isArray(stepsRes)) {
       const stepsMap: Record<string, number> = {}
-      stepsRes.forEach((s: { steps: number; date: string }) => { stepsMap[s.date] = s.steps })
+      stepsRes.forEach((s: { steps: number; date: string }) => {
+        const dateKey = String(s.date).slice(0, 10)
+        stepsMap[dateKey] = s.steps
+      })
       setWeeklySteps(stepsMap)
       setTodaySteps(stepsMap[today] ?? 0)
     }
