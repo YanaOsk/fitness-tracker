@@ -141,9 +141,10 @@ export async function POST(request: Request) {
 
     return Response.json(result)
   } catch (err) {
-    console.error('estimate-calories error:', err)
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('estimate-calories error:', msg)
     return Response.json(
-      { food_name: 'לא ידוע', calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, serving_description: '' },
+      { food_name: 'לא ידוע', calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, serving_description: '', _debug_error: msg },
       { status: 200 }
     )
   }
