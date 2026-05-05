@@ -75,28 +75,31 @@ async function searchOpenFoodFacts(query: string, grams: number | null): Promise
   }
 }
 
-// Fallback: Claude estimates from training knowledge
-async function estimateWithClaude(food_description: string): Promise<NutritionResult> {
+interface NutritionItem {
+  food_name: string; calories: number; protein_g: number; carbs_g: number; fat_g: number
+}
+
+// Claude estimates breakdown of multiple items
+async function estimateWithClaude(food_description: string): Promise<NutritionResult & { items?: NutritionItem[] }> {
   const response = await anthropic.messages.create({
     model: 'claude-haiku-4-5-20251001',
-    max_tokens: 512,
+    max_tokens: 1024,
     messages: [{
       role: 'user',
-      content: `אתה מומחה תזונה ישראלי. נתח את הערך התזונתי של המזון/משקה הבא:
+      content: `אתה מומחה תזונה ישראלי. פרק את התיאור הבא לפריטים נפרדים וחשב ערכים תזונתיים לכל אחד:
 
 "${food_description}"
 
-עבור מוצרים מותגים ידועים (נוטלה, ביסלי, במבה, קוקה קולה, דנונה וכו') — השתמש בערכים המדויקים שידועים לך.
-עבור שאר המזונות — הנח מנה ישראלית סבירה.
+חשוב:
+- אם המשתמש ציין קלוריות לפריט מסוים — השתמש בערך שציין
+- עבור מוצרים מותגים (נוטלה, ביסלי, במבה וכו') — השתמש בערכים המדויקים
+- חשב כמויות ריאליות לפי הישראלי הממוצע
 
 החזר JSON בלבד:
 {
-  "food_name": "שם המזון בעברית",
-  "calories": 0,
-  "protein_g": 0,
-  "carbs_g": 0,
-  "fat_g": 0,
-  "serving_description": "תיאור המנה בעברית"
+  "items": [
+    { "food_name": "שם הפריט בעברית", "calories": 123, "protein_g": 5, "carbs_g": 20, "fat_g": 3 }
+  ]
 }`,
     }],
   })
@@ -105,15 +108,27 @@ async function estimateWithClaude(food_description: string): Promise<NutritionRe
   const jsonMatch = raw.match(/\{[\s\S]*\}/)
   if (!jsonMatch) throw new Error('No JSON')
   const r = JSON.parse(jsonMatch[0])
+  const items: NutritionItem[] = (r.items || []).map((item: NutritionItem) => ({
+    food_name: item.food_name || '',
+    calories: Math.round(Number(item.calories) || 0),
+    protein_g: Math.round((Number(item.protein_g) || 0) * 10) / 10,
+    carbs_g: Math.round((Number(item.carbs_g) || 0) * 10) / 10,
+    fat_g: Math.round((Number(item.fat_g) || 0) * 10) / 10,
+  }))
+
+  const total = items.reduce((acc, item) => ({
+    calories: acc.calories + item.calories,
+    protein_g: Math.round((acc.protein_g + item.protein_g) * 10) / 10,
+    carbs_g: Math.round((acc.carbs_g + item.carbs_g) * 10) / 10,
+    fat_g: Math.round((acc.fat_g + item.fat_g) * 10) / 10,
+  }), { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 })
 
   return {
-    food_name: r.food_name || food_description,
-    calories: Math.round(Number(r.calories) || 0),
-    protein_g: Math.round((Number(r.protein_g) || 0) * 10) / 10,
-    carbs_g: Math.round((Number(r.carbs_g) || 0) * 10) / 10,
-    fat_g: Math.round((Number(r.fat_g) || 0) * 10) / 10,
-    serving_description: r.serving_description || '',
+    food_name: items.length === 1 ? items[0].food_name : food_description,
+    ...total,
+    serving_description: items.length > 1 ? `${items.length} פריטים` : '',
     source: 'ai',
+    items: items.length > 1 ? items : undefined,
   }
 }
 

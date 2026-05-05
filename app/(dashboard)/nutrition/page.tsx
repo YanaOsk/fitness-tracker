@@ -13,8 +13,12 @@ import {
 import { format } from 'date-fns'
 import { getMealRecommendations, getDailyCalorieTarget, type MealOption } from '@/lib/meal-recommendations'
 
+interface AiEstimateItem {
+  food_name: string; calories: number; protein_g: number; carbs_g: number; fat_g: number
+}
 interface AiEstimate {
   food_name: string; calories: number; protein_g: number; carbs_g: number; fat_g: number; serving_description: string
+  items?: AiEstimateItem[]
 }
 interface GeneratedMeal {
   meal_type: string; food_name: string; description: string
@@ -308,12 +312,25 @@ export default function NutritionPage() {
             {aiResult && (
               <div className="mt-4 bg-emerald-50 border border-emerald-200 rounded-2xl p-4">
                 <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <p className="font-semibold text-slate-800">{aiResult.food_name}</p>
-                    {aiResult.serving_description && <p className="text-xs text-slate-500 mt-0.5">{aiResult.serving_description}</p>}
-                  </div>
+                  <p className="font-semibold text-slate-800">{aiResult.items ? 'פירוט הארוחה' : aiResult.food_name}</p>
                   <button onClick={() => setAiResult(null)} className="text-slate-300 hover:text-slate-500"><X className="w-4 h-4" /></button>
                 </div>
+
+                {aiResult.items && (
+                  <div className="space-y-2 mb-3">
+                    {aiResult.items.map((item, i) => (
+                      <div key={i} className="bg-white rounded-xl px-3 py-2 flex items-center justify-between">
+                        <p className="text-sm text-slate-700">{item.food_name}</p>
+                        <p className="text-sm font-semibold text-slate-800 shrink-0 mr-2">{item.calories} קק״ל</p>
+                      </div>
+                    ))}
+                    <div className="border-t border-emerald-200 pt-2 flex items-center justify-between px-1">
+                      <p className="text-sm font-bold text-slate-800">סה״כ</p>
+                      <p className="text-sm font-bold text-emerald-700">{aiResult.calories} קק״ל</p>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-4 gap-2 mb-4">
                   {[{ label: 'קלוריות', value: aiResult.calories, unit: '' }, { label: 'חלבון', value: aiResult.protein_g, unit: 'גר׳' }, { label: 'פחמימות', value: aiResult.carbs_g, unit: 'גר׳' }, { label: 'שומן', value: aiResult.fat_g, unit: 'גר׳' }].map(({ label, value, unit }) => (
                     <div key={label} className="bg-white rounded-xl p-2.5 text-center">
