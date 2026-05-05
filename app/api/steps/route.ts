@@ -10,6 +10,12 @@ export async function GET(request: Request) {
   const date = url.searchParams.get('date')
   const from = url.searchParams.get('from')
 
+  const debug = url.searchParams.get('debug')
+  if (debug) {
+    const all = await sql`SELECT user_id, steps, date, source FROM step_logs ORDER BY date DESC LIMIT 20`
+    return Response.json({ session_user_id: session.user.id, rows: all })
+  }
+
   if (from) {
     const rows = await sql`
       SELECT steps, date, source FROM step_logs
