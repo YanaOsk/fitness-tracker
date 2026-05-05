@@ -58,7 +58,7 @@ async function searchOpenFoodFacts(query: string, grams: number | null): Promise
     const cal100 = Number(n['energy-kcal_100g'] ?? n['energy_100g'] ?? 0) / (n['energy_100g'] && !n['energy-kcal_100g'] ? 4.184 : 1)
     if (!cal100 || cal100 > 900) return null // sanity check
 
-    const servingG = grams ?? Number(product.serving_quantity) || 100
+    const servingG = grams ?? (Number(product.serving_quantity) || 100)
     const factor = servingG / 100
 
     return {
