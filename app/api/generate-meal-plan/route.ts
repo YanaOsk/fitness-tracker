@@ -1,9 +1,9 @@
-import Anthropic from '@anthropic-ai/sdk'
+import OpenAI from 'openai'
 import { auth } from '@/lib/auth'
 import { Profile } from '@/lib/types'
 import { calculateDailyTargets } from '@/lib/nutrition-data'
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 export async function POST(request: Request) {
   try {
@@ -52,14 +52,16 @@ meal_type חייב להיות אחד מ: breakfast, snack, lunch, dinner
 יהיו בדיוק 5 פריטים (breakfast × 1, snack × 2, lunch × 1, dinner × 1).
 החזר רק JSON תקין ללא טקסט נוסף.`
 
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
       max_tokens: 1500,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: prompt }],
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: prompt },
+      ],
     })
 
-    const raw = response.content[0].type === 'text' ? response.content[0].text : '[]'
+    const raw = response.choices[0].message.content ?? '[]'
     const jsonMatch = raw.match(/\[[\s\S]*\]/)
     if (!jsonMatch) throw new Error('No JSON array found')
 

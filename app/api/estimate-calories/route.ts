@@ -1,7 +1,7 @@
-import Anthropic from '@anthropic-ai/sdk'
+import OpenAI from 'openai'
 import { auth } from '@/lib/auth'
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 interface NutritionResult {
   food_name: string
@@ -13,10 +13,9 @@ interface NutritionResult {
   source?: 'openfoodfacts' | 'ai'
 }
 
-// Extract a searchable product name + quantity from Hebrew/mixed text
 async function parseDescription(text: string): Promise<{ product: string; grams: number | null }> {
-  const res = await anthropic.messages.create({
-    model: 'claude-haiku-4-5-20251001',
+  const res = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
     max_tokens: 128,
     messages: [{
       role: 'user',
@@ -32,7 +31,7 @@ Return only JSON, no text.`,
     }],
   })
   try {
-    const raw = res.content[0].type === 'text' ? res.content[0].text : '{}'
+    const raw = res.choices[0].message.content ?? '{}'
     const parsed = JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] ?? '{}')
     return { product: parsed.product || text, grams: parsed.grams || null }
   } catch {
@@ -40,7 +39,6 @@ Return only JSON, no text.`,
   }
 }
 
-// Search OpenFoodFacts for a product
 async function searchOpenFoodFacts(query: string, grams: number | null): Promise<NutritionResult | null> {
   try {
     const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&json=1&page_size=3&fields=product_name,nutriments,serving_size,serving_quantity&action=process&search_simple=1`
@@ -56,7 +54,7 @@ async function searchOpenFoodFacts(query: string, grams: number | null): Promise
 
     const n = product.nutriments
     const cal100 = Number(n['energy-kcal_100g'] ?? n['energy_100g'] ?? 0) / (n['energy_100g'] && !n['energy-kcal_100g'] ? 4.184 : 1)
-    if (!cal100 || cal100 > 900) return null // sanity check
+    if (!cal100 || cal100 > 900) return null
 
     const servingG = grams ?? (Number(product.serving_quantity) || 100)
     const factor = servingG / 100
@@ -79,10 +77,9 @@ interface NutritionItem {
   food_name: string; calories: number; protein_g: number; carbs_g: number; fat_g: number
 }
 
-// Claude estimates breakdown of multiple items
-async function estimateWithClaude(food_description: string): Promise<NutritionResult & { items?: NutritionItem[] }> {
-  const response = await anthropic.messages.create({
-    model: 'claude-haiku-4-5-20251001',
+async function estimateWithAI(food_description: string): Promise<NutritionResult & { items?: NutritionItem[] }> {
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
     max_tokens: 1024,
     messages: [{
       role: 'user',
@@ -104,7 +101,7 @@ async function estimateWithClaude(food_description: string): Promise<NutritionRe
     }],
   })
 
-  const raw = response.content[0].type === 'text' ? response.content[0].text : '{}'
+  const raw = response.choices[0].message.content ?? '{}'
   const jsonMatch = raw.match(/\{[\s\S]*\}/)
   if (!jsonMatch) throw new Error('No JSON')
   const r = JSON.parse(jsonMatch[0])
@@ -142,17 +139,13 @@ export async function POST(request: Request) {
       return Response.json({ error: 'No food description' }, { status: 400 })
     }
 
-    // Step 1: parse product name + quantity in parallel with Claude fallback
-    const [parsed, claudeResult] = await Promise.all([
+    const [parsed, aiResult] = await Promise.all([
       parseDescription(food_description),
-      estimateWithClaude(food_description),
+      estimateWithAI(food_description),
     ])
 
-    // Step 2: try OpenFoodFacts with the extracted product name
     const offResult = await searchOpenFoodFacts(parsed.product, parsed.grams)
-
-    // Step 3: prefer OpenFoodFacts if it found something with valid calories
-    const result = (offResult && offResult.calories > 0) ? offResult : claudeResult
+    const result = (offResult && offResult.calories > 0) ? offResult : aiResult
 
     return Response.json(result)
   } catch (err) {

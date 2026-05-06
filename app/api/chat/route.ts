@@ -1,8 +1,8 @@
-import Anthropic from '@anthropic-ai/sdk'
+import OpenAI from 'openai'
 import { auth } from '@/lib/auth'
 import { Profile } from '@/lib/types'
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 function buildSystemPrompt(profile: Profile | null): string {
   let prompt =
@@ -49,23 +49,27 @@ export async function POST(request: Request) {
 
     const { messages, profile } = await request.json()
 
-    const stream = await anthropic.messages.stream({
-      model: 'claude-haiku-4-5-20251001',
+    const stream = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
       max_tokens: 1024,
-      system: buildSystemPrompt(profile),
-      messages: messages.map((m: { role: string; content: string }) => ({
-        role: m.role as 'user' | 'assistant',
-        content: m.content,
-      })),
+      stream: true,
+      messages: [
+        { role: 'system', content: buildSystemPrompt(profile) },
+        ...messages.map((m: { role: string; content: string }) => ({
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+        })),
+      ],
     })
 
     const encoder = new TextEncoder()
     const readable = new ReadableStream({
       async start(controller) {
         for await (const chunk of stream) {
-          if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
+          const text = chunk.choices[0]?.delta?.content ?? ''
+          if (text) {
             controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ text: chunk.delta.text })}\n\n`)
+              encoder.encode(`data: ${JSON.stringify({ text })}\n\n`)
             )
           }
         }
