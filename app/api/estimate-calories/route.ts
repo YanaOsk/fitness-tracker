@@ -17,22 +17,16 @@ async function parseDescription(text: string): Promise<{ product: string; grams:
   const res = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
     max_tokens: 128,
+    response_format: { type: 'json_object' },
     messages: [{
       role: 'user',
-      content: `Extract from this food description:
-"${text}"
-
-Return JSON only:
-{"product": "english product name or transliteration (e.g. nutella, coca cola, bamba, bisli)", "grams": 30}
-
-- product: the main food/product name in English for database search
-- grams: estimated grams consumed (null if only a generic food like "salad")
-Return only JSON, no text.`,
+      content: `Extract from this food description: "${text}"
+Return JSON: {"product": "english product name (e.g. nutella, coca cola, bamba)", "grams": 30}
+grams = estimated grams consumed, or null for generic foods.`,
     }],
   })
   try {
-    const raw = res.choices[0].message.content ?? '{}'
-    const parsed = JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] ?? '{}')
+    const parsed = JSON.parse(res.choices[0].message.content ?? '{}')
     return { product: parsed.product || text, grams: parsed.grams || null }
   } catch {
     return { product: text, grams: null }
@@ -81,30 +75,23 @@ async function estimateWithAI(food_description: string): Promise<NutritionResult
   const response = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
     max_tokens: 1024,
+    response_format: { type: 'json_object' },
     messages: [{
       role: 'user',
-      content: `אתה מומחה תזונה ישראלי. פרק את התיאור הבא לפריטים נפרדים וחשב ערכים תזונתיים לכל אחד:
+      content: `אתה מומחה תזונה ישראלי. פרק את התיאור הבא לפריטים נפרדים וחשב ערכים תזונתיים.
 
-"${food_description}"
+תיאור: "${food_description}"
 
-חשוב:
-- אם המשתמש ציין קלוריות לפריט מסוים — השתמש בערך שציין
-- עבור מוצרים מותגים (נוטלה, ביסלי, במבה וכו') — השתמש בערכים המדויקים
-- חשב כמויות ריאליות לפי הישראלי הממוצע
+כללים:
+- אם המשתמש ציין קלוריות — השתמש בערך שציין
+- מוצרים מותגים (נוטלה, ביסלי, במבה וכו') — ערכים מדויקים
+- כמויות ריאליות לפי הישראלי הממוצע
 
-החזר JSON בלבד:
-{
-  "items": [
-    { "food_name": "שם הפריט בעברית", "calories": 123, "protein_g": 5, "carbs_g": 20, "fat_g": 3 }
-  ]
-}`,
+החזר JSON: {"items": [{"food_name": "שם בעברית", "calories": 123, "protein_g": 5, "carbs_g": 20, "fat_g": 3}]}`,
     }],
   })
 
-  const raw = response.choices[0].message.content ?? '{}'
-  const jsonMatch = raw.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) throw new Error('No JSON')
-  const r = JSON.parse(jsonMatch[0])
+  const r = JSON.parse(response.choices[0].message.content ?? '{}')
   const items: NutritionItem[] = (r.items || []).map((item: NutritionItem) => ({
     food_name: item.food_name || '',
     calories: Math.round(Number(item.calories) || 0),
