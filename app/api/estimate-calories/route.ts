@@ -1,7 +1,7 @@
 import OpenAI from 'openai'
 import { auth } from '@/lib/auth'
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+const openai = new OpenAI({ apiKey: (process.env.OPENAI_API_KEY ?? '').replace(/^﻿/, '').trim() })
 
 interface NutritionResult {
   food_name: string

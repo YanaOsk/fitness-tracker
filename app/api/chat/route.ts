@@ -2,7 +2,7 @@ import OpenAI from 'openai'
 import { auth } from '@/lib/auth'
 import { Profile } from '@/lib/types'
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+const openai = new OpenAI({ apiKey: (process.env.OPENAI_API_KEY ?? '').replace(/^﻿/, '').trim() })
 
 function buildSystemPrompt(profile: Profile | null): string {
   let prompt =

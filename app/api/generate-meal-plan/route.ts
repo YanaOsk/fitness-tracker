@@ -3,7 +3,7 @@ import { auth } from '@/lib/auth'
 import { Profile } from '@/lib/types'
 import { calculateDailyTargets } from '@/lib/nutrition-data'
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+const openai = new OpenAI({ apiKey: (process.env.OPENAI_API_KEY ?? '').replace(/^﻿/, '').trim() })
 
 export async function POST(request: Request) {
   try {
