@@ -96,7 +96,7 @@ export default function DashboardPage() {
     ? calculateDailyTargets(profile.gender, profile.is_pregnant, profile.activity_level)
     : { calories: 2000, protein: 125, carbs: 225, fat: 67, water_ml: 2700 }
 
-  const totalCalories = foodLogs.reduce((sum, f) => sum + (f.calories ?? 0), 0)
+  const totalCalories = foodLogs.reduce((sum, f) => sum + (Number(f.calories) || 0), 0)
   const totalWater = waterLogs.reduce((sum, w) => sum + w.amount_ml, 0)
   const todayWorkouts = weeklyWorkouts.filter((w) => isToday(parseISO(w.completed_at))).length
 

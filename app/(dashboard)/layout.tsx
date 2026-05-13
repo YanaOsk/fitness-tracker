@@ -12,12 +12,14 @@ import {
   User,
   LogOut,
   Activity,
+  CalendarDays,
 } from 'lucide-react'
 
 const navItems = [
   { href: '/dashboard', label: 'ראשי', icon: LayoutDashboard },
   { href: '/workouts', label: 'אימונים', icon: Dumbbell },
   { href: '/nutrition', label: 'תזונה', icon: Apple },
+  { href: '/routine', label: 'לוּז', icon: CalendarDays },
   { href: '/chat', label: 'AI', icon: MessageCircle },
   { href: '/profile', label: 'פרופיל', icon: User },
 ]

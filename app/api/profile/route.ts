@@ -31,13 +31,10 @@ export async function GET() {
     }
   }
 
-  // Calculate days within current pregnancy week
-  if (profile.is_pregnant && profile.pregnancy_week && profile.pregnancy_week_updated_at) {
-    const updatedAt = new Date(profile.pregnancy_week_updated_at)
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const daysDiff = Math.floor((today.getTime() - updatedAt.getTime()) / (1000 * 60 * 60 * 24))
-    profile.pregnancy_days_in_week = daysDiff % 7
+  // Days since last Monday = days into current pregnancy week
+  if (profile.is_pregnant && profile.pregnancy_week) {
+    const dayOfWeek = new Date().getDay() // 0=Sun,1=Mon,...,6=Sat
+    profile.pregnancy_days_in_week = dayOfWeek === 0 ? 6 : dayOfWeek - 1
   }
 
   return Response.json(profile)

@@ -14,7 +14,14 @@ export async function GET(request: Request) {
     WHERE user_id = ${session.user.id} AND date = ${date}
     ORDER BY logged_at
   `
-  return Response.json(rows)
+  const n = (v: unknown) => (v !== null && v !== undefined && isFinite(Number(v)) ? Number(v) : null)
+  return Response.json(rows.map(r => ({
+    ...r,
+    calories: n(r.calories),
+    protein_g: n(r.protein_g),
+    carbs_g: n(r.carbs_g),
+    fat_g: n(r.fat_g),
+  })))
 }
 
 export async function POST(request: Request) {
@@ -26,6 +33,7 @@ export async function POST(request: Request) {
   // Support bulk insert (array) or single insert (object)
   if (Array.isArray(body)) {
     const today = format(new Date(), 'yyyy-MM-dd')
+    const safe = (v: unknown) => (typeof v === 'number' && isFinite(v) ? v : null)
     const inserted = []
     for (const item of body) {
       const rows = await sql`
@@ -36,10 +44,10 @@ export async function POST(request: Request) {
           ${item.food_name},
           ${item.exchange_type ?? null},
           ${item.portions ?? 1},
-          ${item.calories ?? null},
-          ${item.protein_g ?? null},
-          ${item.carbs_g ?? null},
-          ${item.fat_g ?? null},
+          ${safe(item.calories)},
+          ${safe(item.protein_g)},
+          ${safe(item.carbs_g)},
+          ${safe(item.fat_g)},
           ${item.date ?? today}
         )
         RETURNING *
@@ -51,6 +59,7 @@ export async function POST(request: Request) {
 
   const { meal_type, food_name, exchange_type, portions, calories, protein_g, carbs_g, fat_g, date } = body
   const targetDate = date || format(new Date(), 'yyyy-MM-dd')
+  const safe = (v: unknown) => (typeof v === 'number' && isFinite(v) ? v : null)
 
   const rows = await sql`
     INSERT INTO food_logs (user_id, meal_type, food_name, exchange_type, portions, calories, protein_g, carbs_g, fat_g, date)
@@ -60,10 +69,10 @@ export async function POST(request: Request) {
       ${food_name},
       ${exchange_type ?? null},
       ${portions ?? 1},
-      ${calories ?? null},
-      ${protein_g ?? null},
-      ${carbs_g ?? null},
-      ${fat_g ?? null},
+      ${safe(calories)},
+      ${safe(protein_g)},
+      ${safe(carbs_g)},
+      ${safe(fat_g)},
       ${targetDate}
     )
     RETURNING *

@@ -18,6 +18,8 @@ interface AiEstimateItem {
 }
 interface AiEstimate {
   food_name: string; calories: number; protein_g: number; carbs_g: number; fat_g: number; serving_description: string
+  source?: 'openfoodfacts' | 'ai'
+  sourceUrl?: string
   items?: AiEstimateItem[]
 }
 interface GeneratedMeal {
@@ -156,7 +158,7 @@ export default function NutritionPage() {
   const saveTodayAsMeal = async () => {
     if (!quickMealName.trim()) return
     setSavingQuickMeal(true)
-    const items = foodLogs.map((f) => ({ food_name: f.food_name, calories: f.calories ?? 0, protein_g: f.protein_g ?? 0, carbs_g: f.carbs_g ?? 0, fat_g: f.fat_g ?? 0, exchange_type: f.exchange_type }))
+    const items = foodLogs.map((f) => ({ food_name: f.food_name, calories: Number(f.calories) || 0, protein_g: Number(f.protein_g) || 0, carbs_g: Number(f.carbs_g) || 0, fat_g: Number(f.fat_g) || 0, exchange_type: f.exchange_type }))
     await fetch('/api/quick-meals', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: quickMealName, total_calories: items.reduce((s, i) => s + i.calories, 0), items }),
@@ -200,10 +202,10 @@ export default function NutritionPage() {
     ? calculateDailyTargets(profile.gender, profile.is_pregnant, profile.activity_level)
     : { calories: 2000, protein: 125, carbs: 225, fat: 67, water_ml: 2700 }
 
-  const totalCalories = foodLogs.reduce((s, f) => s + (f.calories ?? 0), 0)
-  const totalProtein = foodLogs.reduce((s, f) => s + (f.protein_g ?? 0), 0)
-  const totalCarbs = foodLogs.reduce((s, f) => s + (f.carbs_g ?? 0), 0)
-  const totalFat = foodLogs.reduce((s, f) => s + (f.fat_g ?? 0), 0)
+  const totalCalories = foodLogs.reduce((s, f) => s + (Number(f.calories) || 0), 0)
+  const totalProtein = foodLogs.reduce((s, f) => s + (Number(f.protein_g) || 0), 0)
+  const totalCarbs = foodLogs.reduce((s, f) => s + (Number(f.carbs_g) || 0), 0)
+  const totalFat = foodLogs.reduce((s, f) => s + (Number(f.fat_g) || 0), 0)
   const gdWarnings = profile?.has_gestational_diabetes ? validateGDMeal(foodLogs) : []
 
   if (loading) return <div className="flex items-center justify-center h-screen"><Loader2 className="w-8 h-8 text-emerald-500 animate-spin" /></div>
@@ -339,6 +341,18 @@ export default function NutritionPage() {
                     </div>
                   ))}
                 </div>
+                {aiResult.source === 'openfoodfacts' && aiResult.sourceUrl ? (
+                  <a
+                    href={aiResult.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-xs text-emerald-700 hover:text-emerald-900 mb-3 underline underline-offset-2"
+                  >
+                    ✅ מקור מאומת: Open Food Facts ↗
+                  </a>
+                ) : (
+                  <p className="text-xs text-slate-400 mb-3">⚡ הוערך על ידי AI לפי ערכים תזונתיים ידועים</p>
+                )}
                 <button onClick={confirmAiEntry} disabled={confirmingAi}
                   className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-60 flex items-center justify-center gap-2">
                   {confirmingAi && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -429,7 +443,7 @@ export default function NutritionPage() {
         {MEAL_TYPES.map((mt) => {
           const items = foodLogs.filter((f) => f.meal_type === mt)
           if (items.length === 0) return null
-          const mealCal = items.reduce((s, f) => s + (f.calories ?? 0), 0)
+          const mealCal = items.reduce((s, f) => s + (Number(f.calories) || 0), 0)
           const isExpanded = expandedLog === mt
           return (
             <div key={mt} className="bg-white rounded-2xl shadow-sm border border-slate-100">
